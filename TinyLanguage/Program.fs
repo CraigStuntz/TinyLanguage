@@ -2,7 +2,7 @@
 
 [<EntryPoint>]
 let main argv = 
-    match Compiler.compile "(+ 1 2)" with
+    match Compiler.compile "(+ 1 (+ 2 3 4))" with
     | Success assemblyBuilder -> 
         assemblyBuilder.Save("test.exe")
         printf "good"

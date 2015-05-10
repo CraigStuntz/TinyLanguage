@@ -34,7 +34,12 @@ let private error (state : ParseState, message: string): ParseState =
 
 let rec private parseExpression (state : ParseState): ParseState =
     match state.Remaining with
-    | LeftParenthesis     :: Identifier name    :: rest -> parseInvoke (name, { state with Remaining = rest })
+    | LeftParenthesis     :: Identifier name    :: argumentsAndBody -> 
+        let invoke = parseInvoke (name, { state with Remaining = argumentsAndBody })
+        match invoke.Remaining with
+        | RightParenthesis :: remaining -> { invoke with Remaining = remaining }
+        | []                            -> error (state, "Expected ')'.") 
+        | wrong :: _                    -> error (state, sprintf "Expected ')'; found %A." wrong) 
     | LeftParenthesis     :: wrong -> error (state, sprintf "%A cannot follow '('." wrong) 
     | RightParenthesis    :: _     -> error (state, "Unmatched )")
     | Identifier   name   :: _     -> error (state, sprintf "Unrecognized identifier '%s'." name) 
@@ -46,12 +51,12 @@ and private parseInvoke (identifier: string, state : ParseState) =
     let arguments = parseArguments { state with Expressions = [] }
     match parseOperation identifier with
     | Some operation -> 
-        parseExpression { Expressions = state.Expressions @ [ Invoke(Builtin operation, arguments.Expressions) ]; Remaining = arguments.Remaining }
+        { Expressions = state.Expressions @ [ Invoke(Builtin operation, arguments.Expressions) ]; Remaining = arguments.Remaining }
     | None -> error (state, sprintf "Unknown function '%s'." identifier) 
 and private parseArguments (state : ParseState) : ParseState =
     match state.Remaining with 
     | [] -> error (state, "')' expected.")
-    | RightParenthesis :: rest -> { state with Remaining = rest }
+    | RightParenthesis :: rest -> state
     | _ -> parseArguments (parseExpression state)
 
 let rec private parseExpressions (state : ParseState): ParseState =
