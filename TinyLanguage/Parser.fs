@@ -7,16 +7,33 @@ let private parseOperation = function
 | "+" -> Some Plus
 | "-" -> Some Minus
 | "*" -> Some Times
-| _   -> None 
+| _   -> None
+let private prettyPrintOperation = function
+| Plus -> "+"
+| Minus -> "-"
+| Times -> "*"
 
 type Function =
     | Builtin of Operation
+let private prettyPrintFunction = function
+| Builtin operation -> prettyPrintOperation operation
 
 type Expression = 
     | ConstantInt of int
     | Defun       of string   * Expression list
     | Invoke      of Function * Expression list
     | Error       of string
+
+let rec prettyPrint = function
+| ConstantInt number -> number.ToString(System.Globalization.CultureInfo.InvariantCulture)
+| Defun (name, body) ->
+    let bodyExpressions = body |> List.map prettyPrint |> String.concat " "
+    sprintf "(defun %s %s)" name bodyExpressions
+| Invoke (f, arguments) ->
+    let name = prettyPrintFunction f
+    let argumentExpressions = arguments |> List.map prettyPrint |> String.concat " "
+    sprintf "(%s %s)" name argumentExpressions
+| Error message -> message
 
 let rec findAllErrors = function
 | Defun       (_, expressions) -> expressions |> List.collect findAllErrors
@@ -38,8 +55,8 @@ let rec private parseExpression (state : ParseState): ParseState =
         let invoke = parseInvoke (name, { state with Remaining = argumentsAndBody })
         match invoke.Remaining with
         | RightParenthesis :: remaining -> { invoke with Remaining = remaining }
-        | []                            -> error (state, "Expected ')'.") 
-        | wrong :: _                    -> error (state, sprintf "Expected ')'; found %A." wrong) 
+        | []                            -> error (invoke, "Expected ')'.") 
+        | wrong :: _                    -> error (invoke, sprintf "Expected ')'; found %A." wrong) 
     | LeftParenthesis     :: wrong -> error (state, sprintf "%A cannot follow '('." wrong) 
     | RightParenthesis    :: _     -> error (state, "Unmatched )")
     | Identifier   name   :: _     -> error (state, sprintf "Unrecognized identifier '%s'." name) 
@@ -55,7 +72,7 @@ and private parseInvoke (identifier: string, state : ParseState) =
     | None -> error (state, sprintf "Unknown function '%s'." identifier) 
 and private parseArguments (state : ParseState) : ParseState =
     match state.Remaining with 
-    | [] -> error (state, "')' expected.")
+    | [] -> state // will be converted to error by parseExpression
     | RightParenthesis :: rest -> state
     | _ -> parseArguments (parseExpression state)
 

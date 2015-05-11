@@ -21,4 +21,4 @@ type ParserTests () =
     member this.``missing right parenthesis should error``() = 
         NUnit.Framework.Assert.That(
             parse [ LeftParenthesis; Identifier "+"; LiteralInt 1; LiteralInt 2] 
-            |> List.exists (isTreeWithErrorMessageContaining "')' expected"))
+            |> List.exists (isTreeWithErrorMessageContaining "Expected ')'"))
