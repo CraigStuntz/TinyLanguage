@@ -56,7 +56,7 @@ let rec private parseExpression (state : ParseState): ParseState =
         match invoke.Remaining with
         | RightParenthesis :: remaining -> { invoke with Remaining = remaining }
         | []                            -> error (invoke, "Expected ')'.") 
-        | wrong :: _                    -> error (invoke, sprintf "Expected ')'; found %A." wrong) 
+        | wrong :: _                    -> error (state, sprintf "Expected ')'; found %A." wrong) 
     | LeftParenthesis     :: wrong -> error (state, sprintf "%A cannot follow '('." wrong) 
     | RightParenthesis    :: _     -> error (state, "Unmatched )")
     | Identifier   name   :: _     -> error (state, sprintf "Unrecognized identifier '%s'." name) 
@@ -88,7 +88,7 @@ let rec private containsMain expressions =
     | [] -> false
     | _ :: rest -> containsMain rest
 
-let private ensureHasMainFunction = function
+let ensureHasMainFunction = function
     | [] -> []
     | expressions when containsMain expressions -> expressions
     | [ expr ]    -> [ Defun("main", [ expr ]) ]

@@ -7,6 +7,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TinyLanguage", "TinyLanguag
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TinyLanguage.Tests", "TinyLanguage.Tests\TinyLanguage.Tests.fsproj", "{5C6F7152-E45B-4979-AEFB-E04AB89A5739}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{CB36E8F6-1AB9-4722-B06D-F66425716E69}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\packages.config = .nuget\packages.config
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
