@@ -1,20 +1,22 @@
 ﻿module IlGenerator
 
+open Binding
 open Il
 open Parser
 open Railway
+open Syntax
 
 let private codegenOper = function
     | Plus     -> Instruction.Add
     | Minus    -> Instruction.Sub
     | Times    -> Instruction.Mul
 
-let rec private codegenExpression (expression : Expression) = 
-    match expression with
-    | ConstantInt n -> [Ldc_I4 n]
-    | Invoke (Builtin operation, expressions) -> 
-        let argumentCount = List.length expressions
-        let arguments = expressions |> List.collect codegenExpression
+let rec private codegenBinding (binding : Binding) = 
+    match binding with
+    | IntBinding n -> [Ldc_I4 n]
+    | InvokeBinding (Builtin operation, bindings) -> 
+        let argumentCount = List.length bindings
+        let arguments = bindings |> List.collect codegenBinding
         let invokes = List.replicate (argumentCount - 1) (codegenOper operation)
         arguments @ invokes
     | wrong -> failwithf "Sorry, you can't pass %A here!" wrong
@@ -24,13 +26,13 @@ let private findErrors (expressions : Expression list): Result<Expression list, 
     | []     -> succeed expressions
     | errors -> fail (System.String.Join(System.Environment.NewLine, errors))
 
-let private codegenDefun (expression : Expression): (string * Instruction list) = 
-    match expression with
-    | Defun (name, expressions) -> name, expressions |> List.collect codegenExpression
+let private codegenDefun (binding : Binding): (string * Instruction list) = 
+    match binding with
+    | DefunBinding (name, bindings) -> name, bindings |> List.collect codegenBinding
     | wrong -> failwithf "Expected Defun, found %A." wrong
 
-let codegenDefuns (expressions : Expression list): Result<Map<string, Instruction list>, string> = 
-    expressions 
+let codegenDefuns (bindings : Binding list): Result<Map<string, Instruction list>, string> = 
+    bindings 
         |> List.map codegenDefun 
         |> Map.ofList
         |> succeed

@@ -9,10 +9,11 @@
     <OutputType>Exe</OutputType>
     <RootNamespace>TinyLanguage</RootNamespace>
     <AssemblyName>TinyLanguage</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
+    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
     <Name>TinyLanguage</Name>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -49,7 +50,10 @@
   <ItemGroup>
     <Compile Include="Railway.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="Syntax.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="PrettyPrinter.fs" />
+    <Compile Include="Binding.fs" />
     <Compile Include="Il.fs" />
     <Compile Include="IlGenerator.fs" />
     <Compile Include="Compiler.fs" />

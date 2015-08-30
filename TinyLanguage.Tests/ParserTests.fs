@@ -4,6 +4,7 @@ open NUnit.Framework
 open FsUnit
 open Lexer
 open Parser
+open Syntax
 open TestHelpers
 
 type ParserTests () =
@@ -15,7 +16,7 @@ type ParserTests () =
     member this.``should parse (+ 1 2)``() = 
         parse [ LeftParenthesis; Identifier "+"; LiteralInt 1; LiteralInt 2; RightParenthesis] 
             |> should equal 
-            [ Defun("main", [ Invoke (Builtin Plus, [ConstantInt 1; ConstantInt 2]) ] ) ]
+            [ DefunExpr("main", [ InvokeExpr (Builtin Plus, [IntExpr 1; IntExpr 2]) ] ) ]
 
     [<Test>] 
     member this.``missing right parenthesis should error``() = 
