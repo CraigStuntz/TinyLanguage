@@ -16,7 +16,7 @@ type ParserTests () =
     member this.``should parse (+ 1 2)``() = 
         parse [ LeftParenthesis; Identifier "+"; LiteralInt 1; LiteralInt 2; RightParenthesis] 
             |> should equal 
-            [ DefunExpr("main", [ InvokeExpr (Builtin Plus, [IntExpr 1; IntExpr 2]) ] ) ]
+            [ InvokeExpr("+", [IntExpr 1; IntExpr 2]) ]
 
     [<Test>] 
     member this.``missing right parenthesis should error``() = 

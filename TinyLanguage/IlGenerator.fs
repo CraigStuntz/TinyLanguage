@@ -6,33 +6,55 @@ open Parser
 open Railway
 open Syntax
 
+type Builtin = 
+    | Plus
+    | Minus
+    | Times
+    | WriteLine
+        
+let writeLineMethod = typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
+
 let private codegenOper = function
-    | Plus     -> Instruction.Add
-    | Minus    -> Instruction.Sub
-    | Times    -> Instruction.Mul
+    | Plus      -> Instruction.Add
+    | Minus     -> Instruction.Sub
+    | Times     -> Instruction.Mul
+    | WriteLine -> Instruction.Call writeLineMethod
+
+let private nameToOper = function
+| "+" -> Plus
+| "-" -> Minus
+| "*" -> Times
+| "WriteLine" -> WriteLine
+| unknown -> failwithf "Unknown function %s" unknown
 
 let rec private codegenBinding (binding : Binding) = 
     match binding with
-    | IntBinding n -> [Ldc_I4 n]
-    | InvokeBinding (Builtin operation, bindings) -> 
-        let argumentCount = List.length bindings
-        let arguments = bindings |> List.collect codegenBinding
-        let invokes = List.replicate (argumentCount - 1) (codegenOper operation)
+    | BoolBinding   b -> 
+        match b with
+        | true        -> [Ldc_I4_1]
+        | false       -> [Ldc_I4_0]
+    | IntBinding    n -> [Ldc_I4 n]
+    | StringBinding s -> [Ldstr s]
+    | InvokeBinding { Name = name; Arguments = arguments; ResultType = resultType } -> 
+        let argumentCount = List.length arguments
+        let arguments = arguments |> List.collect codegenBinding
+        let invokes = List.replicate (argumentCount - 1) (name |> nameToOper |> codegenOper)
         arguments @ invokes
     | wrong -> failwithf "Sorry, you can't pass %A here!" wrong
 
 let private findErrors (expressions : Expression list): Result<Expression list, string> = 
-    match expressions |> List.collect findAllErrors with
+    match expressions |> findAllErrors with
     | []     -> succeed expressions
     | errors -> fail (System.String.Join(System.Environment.NewLine, errors))
 
-let private codegenDefun (binding : Binding): (string * Instruction list) = 
-    match binding with
-    | DefunBinding (name, bindings) -> name, bindings |> List.collect codegenBinding
+let private codegenStatement (statement : Statement): (string * Instruction list) = 
+    match statement with
+    | Defun { Name = name; Arguments = arguments; Body = body; ResultType = resultType } -> 
+        name, body |> codegenBinding
     | wrong -> failwithf "Expected Defun, found %A." wrong
 
-let codegenDefuns (bindings : Binding list): Result<Map<string, Instruction list>, string> = 
-    bindings 
-        |> List.map codegenDefun 
+let codegenStatements (statements : Statement list): Result<Map<string, Instruction list>, string> = 
+    statements 
+        |> List.map codegenStatement
         |> Map.ofList
         |> succeed

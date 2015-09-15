@@ -56,7 +56,7 @@
     <Compile Include="FsCheckAddin.fs" />
     <Compile Include="LexerTests.fs" />
     <Compile Include="ParserTests.fs" />
-    <Compile Include="ParserProperties.fs" />
+    <Compile Include="BindingTests.fs" />
     <Compile Include="IlGeneratorTests.fs" />
   </ItemGroup>
   <ItemGroup>

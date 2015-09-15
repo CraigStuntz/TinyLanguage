@@ -3,18 +3,6 @@
 open Lexer
 open Syntax
 
-let private parseOperation = function
-| "+" -> Some Plus
-| "-" -> Some Minus
-| "*" -> Some Times
-| _   -> None
-
-let rec findAllErrors = function
-| DefunExpr  (_, expressions) -> expressions |> List.collect findAllErrors
-| InvokeExpr (_, expressions) -> expressions |> List.collect findAllErrors
-| IntExpr    _                -> []
-| ErrorExpr  message          -> [ message ]
-
 type private ParseState = {
     Expressions: Expression list
     Remaining:   Lexeme list 
@@ -36,14 +24,12 @@ let rec private parseExpression (state : ParseState): ParseState =
     | Identifier   name   :: _     -> error (state, sprintf "Unrecognized identifier '%s'." name) 
     | LiteralInt   number :: rest  ->  
         { Expressions = state.Expressions @ [ IntExpr number ]; Remaining = rest }
-    | Unrecognized char   :: _    -> error (state, sprintf "Unexpected character %A" char )
+    | LiteralString   str :: rest  ->  
+        { Expressions = state.Expressions @ [ StringExpr str ]; Remaining = rest }    | Unrecognized char   :: _    -> error (state, sprintf "Unexpected character %A" char )
     | [] -> state
 and private parseInvoke (identifier: string, state : ParseState) =
     let arguments = parseArguments { state with Expressions = [] }
-    match parseOperation identifier with
-    | Some operation -> 
-        { Expressions = state.Expressions @ [ InvokeExpr(Builtin operation, arguments.Expressions) ]; Remaining = arguments.Remaining }
-    | None -> error (state, sprintf "Unknown function '%s'." identifier) 
+    { Expressions = state.Expressions @ [ InvokeExpr(identifier, arguments.Expressions) ]; Remaining = arguments.Remaining }
 and private parseArguments (state : ParseState) : ParseState =
     match state.Remaining with 
     | [] -> state // will be converted to error by parseExpression
@@ -58,16 +44,10 @@ let rec private parseExpressions (state : ParseState): ParseState =
 
 let rec private containsMain expressions = 
     match expressions with 
-    | DefunExpr ("main", _) :: _-> true
+    | DefunExpr ("main", _, _) :: _-> true
     | [] -> false
     | _ :: rest -> containsMain rest
 
-let ensureHasMainFunction = function
-    | [] -> []
-    | expressions when containsMain expressions -> expressions
-    | [ expr ]    -> [ DefunExpr("main", [ expr ]) ]
-    | expressions -> expressions @ [ ErrorExpr "No main function found." ]
-
 let parse (lexemes: Lexeme list): Expression list=
     let parsed = parseExpressions { Expressions = []; Remaining = lexemes }
-    parsed.Expressions |> ensureHasMainFunction
+    parsed.Expressions

@@ -26,6 +26,7 @@ type Instruction =
     | Ldloc_2
     | Ldloc_3
     | Ldloc_S      of byte
+    | Ldstr        of string
     | Mul
     | Neg
     | Newobj       of System.Reflection.ConstructorInfo
@@ -66,6 +67,7 @@ let private emit (ilg : Emit.ILGenerator) inst =
     | Ldloc_2        -> ilg.Emit(OpCodes.Ldloc_2)
     | Ldloc_3        -> ilg.Emit(OpCodes.Ldloc_3)
     | Ldloc_S  i     -> ilg.Emit(OpCodes.Ldloc_S, i)
+    | Ldstr    s     -> ilg.Emit(OpCodes.Ldstr, s)
     | Mul            -> ilg.Emit(OpCodes.Mul)
     | Neg            -> ilg.Emit(OpCodes.Neg)
     | Newobj   ci    -> ilg.Emit(OpCodes.Newobj, ci)

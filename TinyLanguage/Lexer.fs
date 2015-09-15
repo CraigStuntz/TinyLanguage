@@ -3,9 +3,10 @@
 type Lexeme =
     | LeftParenthesis
     | RightParenthesis
-    | Identifier   of string
-    | LiteralInt   of int
-    | Unrecognized of char
+    | Identifier    of string
+    | LiteralInt    of int
+    | LiteralString of string
+    | Unrecognized  of char
 
 let private isIdentifierStart (c: char) =
     System.Char.IsLetter c || System.Char.IsPunctuation c || System.Char.IsSymbol c
@@ -16,6 +17,7 @@ let rec private lexChars (source: char list) : Lexeme list =
     match source with 
     | '(' :: rest -> LeftParenthesis  :: lexChars rest
     | ')' :: rest -> RightParenthesis :: lexChars rest
+    | '"' :: rest -> lexString(rest, "")
     | c   :: rest when isIdentifierStart c        -> lexName (source, "")
     | d   :: rest when System.Char.IsDigit d      -> lexNumber(source, "")
     | []          -> []
@@ -31,6 +33,11 @@ and lexNumber (source: char list, number: string) =
     | d :: rest when System.Char.IsDigit(d) ->
         lexNumber (rest, number + d.ToString())
     | rest -> LiteralInt(System.Int32.Parse(number)) :: lexChars rest
+and lexString (source: char list, str: string) =
+    match source with
+    | [] -> [ LiteralString str ]
+    | '"' :: rest -> LiteralString str :: lexChars rest
+    | c :: rest -> lexString (rest, str + c.ToString())
 
 let lex (source: string): Lexeme list =
     lexChars (List.ofSeq source)
