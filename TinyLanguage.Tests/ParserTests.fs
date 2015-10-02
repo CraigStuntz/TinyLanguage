@@ -13,13 +13,13 @@ type ParserTests () =
         parse [] |> should equal []
 
     [<Test>] 
-    member this.``should parse (+ 1 2)``() = 
-        parse [ LeftParenthesis; Identifier "+"; LiteralInt 1; LiteralInt 2; RightParenthesis] 
+    member this.``should parse (inc 2)``() = 
+        parse [ LeftParenthesis; Identifier "inc"; LiteralInt 2; RightParenthesis] 
             |> should equal 
-            [ InvokeExpr("+", [IntExpr 1; IntExpr 2]) ]
+            [ InvokeExpr("inc", IntExpr 2) ]
 
     [<Test>] 
     member this.``missing right parenthesis should error``() = 
         NUnit.Framework.Assert.That(
-            parse [ LeftParenthesis; Identifier "+"; LiteralInt 1; LiteralInt 2] 
+            parse [ LeftParenthesis; Identifier "inc"; LiteralInt 2] 
             |> List.exists (isTreeWithErrorMessageContaining "Expected ')'"))

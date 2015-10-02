@@ -12,8 +12,8 @@ open TestHelpers
 
 type IlGeneratorTests () =
     [<Test>] 
-    member this.``should generate IL code for (+ 1 2) method``() = 
+    member this.``should generate IL code for (inc 2) method``() = 
         let expected: Result<Map<string, Instruction list>, string> = 
-            Success(Map([("main", [ Ldc_I4 1; Ldc_I4 2; Add])]))
-        codegenStatements [ Defun { Name = "main"; Arguments = []; Body = InvokeBinding { Name = "+"; Arguments = [IntBinding 1; IntBinding 2]; ResultType = IntType }; ResultType = VoidType } ]
-            |> should equal expected
+            Success(Map([("main", [ Ldc_I4 2; Ldc_I4_1; Add])]))
+        let actual = codegenStatements [ Defun { Name = "main"; Argument = { Name = "i"; ArgumentType = IntType }; Body = InvokeBinding { Name = "inc"; Argument = IntBinding 2; ResultType = IntType }; ResultType = VoidType } ]
+        actual |> should equal expected
