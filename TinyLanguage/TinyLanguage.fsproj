@@ -55,6 +55,7 @@
     <Compile Include="PrettyPrinter.fs" />
     <Compile Include="Binding.fs" />
     <Compile Include="Il.fs" />
+    <Compile Include="OptimizeIL.fs" />
     <Compile Include="IlGenerator.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Program.fs" />

@@ -17,5 +17,3 @@ let rec private findErrors (expression : Expression): string list =
     | DefunExpr (_, _, body)    -> body     |> findErrors
     | InvokeExpr (_, argument)  -> argument |> findErrors
 
-
-let findAllErrors (expressions : Expression list): string list = expressions |> List.collect findErrors

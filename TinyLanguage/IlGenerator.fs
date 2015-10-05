@@ -35,19 +35,15 @@ let rec private codegenBinding (binding : Binding) =
         arguments @ invoke
     | wrong -> failwithf "Sorry, you can't pass %A here!" wrong
 
-let private findErrors (expressions : Expression list): Result<Expression list, string> = 
-    match expressions |> findAllErrors with
-    | []     -> succeed expressions
-    | errors -> fail (System.String.Join(System.Environment.NewLine, errors))
-
 let private codegenStatement (statement : Statement): (string * Instruction list) = 
     match statement with
     | Defun { Name = name; Argument = argument; Body = body; ResultType = resultType } -> 
         name, body |> codegenBinding
     | wrong -> failwithf "Expected Defun, found %A." wrong
 
-let codegenStatements (statements : Statement list): Result<Map<string, Instruction list>, string> = 
+let private codegenStatements = List.map codegenStatement
+
+let codegen (statements : Statement list): Result<Map<string, Instruction list>, string> = 
     statements 
-        |> List.map codegenStatement
-        |> Map.ofList
-        |> succeed
+        |> Binding.findAllErrors
+        |> Railway.map (codegenStatements >> Map.ofList)

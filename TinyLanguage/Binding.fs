@@ -1,5 +1,6 @@
 ﻿module Binding
 
+open Railway
 open Syntax
 
 type BindingType =
@@ -141,8 +142,16 @@ let private builtins: Map<string, Binding> =
         })
     ] |> Map.ofList
 
-
 let fromExpressions (expressions : Expression list) : Statement list = 
     let initialState = { Environment = builtins; Statements = List.empty }
     let statements = List.fold fromExpression initialState expressions
     statements.Statements
+
+let private findError = function
+| Ignore (ErrorBinding error) -> Some (error)
+| _ -> None
+
+let findAllErrors statements = 
+    match statements |> List.choose findError with
+    | [] -> succeed statements
+    | errors -> fail (errors |> String.concat System.Environment.NewLine)
