@@ -3,6 +3,7 @@
 open System
 open System.Reflection
 open System.Reflection.Emit
+open Binding
 
 type Instruction = 
     | Add 
@@ -10,6 +11,7 @@ type Instruction =
     | Callvirt     of System.Reflection.MethodInfo
     | DeclareLocal of System.Type
     | Div
+    | LdArg_0
     | Ldc_I4       of int
     | Ldc_I4_0
     | Ldc_I4_1
@@ -42,7 +44,12 @@ type Instruction =
     | Stloc_S      of byte
     | Sub
 
-type Method = { Instructions: Instruction list } 
+type Method = {
+    Name: string
+    ArgumentType: BindingType 
+    Instructions: Instruction list 
+    ReturnType:   System.Type
+} 
      
 let private emit (ilg : Emit.ILGenerator) inst = 
     match inst with 
@@ -51,6 +58,7 @@ let private emit (ilg : Emit.ILGenerator) inst =
     | Callvirt mi    -> ilg.Emit(OpCodes.Callvirt, mi)
     | DeclareLocal t -> ignore(ilg.DeclareLocal(t))
     | Div            -> ilg.Emit(OpCodes.Div)
+    | LdArg_0        -> ilg.Emit(OpCodes.Ldarg_0)
     | Ldc_I4 n       -> ilg.Emit(OpCodes.Ldc_I4, n)
     | Ldc_I4_0       -> ilg.Emit(OpCodes.Ldc_I4_0)
     | Ldc_I4_1       -> ilg.Emit(OpCodes.Ldc_I4_1)
@@ -94,6 +102,7 @@ let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodTo
         tb.DefineMethod(methodName, ma)
     let ilg = mb.GetILGenerator() |> emit
     let ci = methodToCall.ReflectedType.GetConstructor([||])
+    ilg (Ldstr "")
     ilg (Call methodToCall)
     if methodToCall.ReturnType <> null then
         ilg (DeclareLocal methodToCall.ReturnType)
@@ -105,18 +114,33 @@ let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodTo
     tb.CreateType() |> ignore
     mb
 
-let compileMethod(typeBuilder: TypeBuilder, methodName: string, instructions: seq<Instruction>) =
+let rec typeOf = function
+| BoolType                     -> typeof<bool>
+| FunctionType (_, resultType) -> resultType |> typeOf
+| IntType                      -> typeof<int>
+| StringType                   -> typeof<string> 
+| VoidType                     -> typeof<unit>
+| unexpected                   -> failwithf "Unexpected result type %A." unexpected 
+
+let compileMethod (typeBuilder: TypeBuilder) (compiledMethod: Method) =
     let methodBuilder = 
         let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static ||| MethodAttributes.HideBySig
-        typeBuilder.DefineMethod(methodName, methodAttributes, typeof<int>, System.Type.EmptyTypes)
+        typeBuilder.DefineMethod(compiledMethod.Name, methodAttributes, compiledMethod.ReturnType, [| typeOf compiledMethod.ArgumentType |])
     let ilg = methodBuilder.GetILGenerator() |> emit
-    Seq.iter ilg instructions 
+    Seq.iter ilg compiledMethod.Instructions 
     ilg Ret
-    methodBuilder
+    (compiledMethod.Name, methodBuilder)
 
-let private compileModule(moduleName: string, methods: Map<string, Instruction list>) =
+let rec private findMain (methods : Method list) =
+    match methods with
+    | [] -> failwith "main method not found"
+    | m :: rest when m.Name = "main" -> m
+    | _ :: rest -> findMain rest
+
+let private compileModule(moduleName: string, methods: Method list) =
+    let moduleNameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension moduleName
     let assemblyBuilder = 
-        let assemblyName = AssemblyName(moduleName)
+        let assemblyName = AssemblyName(moduleNameWithoutExtension)
         AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave)
     let moduleBuilder = assemblyBuilder.DefineDynamicModule(moduleName)
     let typeBuilder = 
@@ -125,13 +149,14 @@ let private compileModule(moduleName: string, methods: Map<string, Instruction l
         moduleBuilder.DefineType(className, typeAttributes)
     let methodBuilders = 
         methods 
-        |> Map.map (fun name instructions -> compileMethod(typeBuilder, name, instructions))
+        |> List.map (compileMethod typeBuilder)
+        |> Map.ofList
     let entryPointType = typeBuilder.CreateType()
     let entryPoint = compileEntryPoint moduleBuilder methodBuilders.["main"]
     assemblyBuilder.SetEntryPoint(entryPoint, PEFileKinds.ConsoleApplication)
     moduleBuilder.CreateGlobalFunctions()
     assemblyBuilder
 
-let toAssemblyBuilder(methods: Map<string, Instruction list>) =
+let toAssemblyBuilder(methods: Method list) =
     let moduleName = "test.exe"
     compileModule(moduleName, methods)

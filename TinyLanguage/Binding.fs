@@ -46,7 +46,7 @@ and Binding =
     | StringBinding   of string
     | InvokeBinding   of Invocation
     | FunctionBinding of Function
-    | VarBinding      of string * BindingType
+    | ArgBinding      of string * BindingType
     | ErrorBinding    of string
 
 let rec prettyPrintBinding = function
@@ -55,7 +55,7 @@ let rec prettyPrintBinding = function
 | StringBinding   value  -> sprintf "%s" value
 | InvokeBinding   value  -> sprintf "(%s %s)" value.Name (value.Argument |> prettyPrintBinding)
 | FunctionBinding value  -> value.Name
-| VarBinding (name, typ) -> sprintf "(%s: %A)" name typ
+| ArgBinding (name, typ) -> sprintf "(%s: %A)" name typ
 | ErrorBinding  message  -> sprintf "Error (%s)" message
 
 let rec inferType (binding: Binding) : BindingType =
@@ -68,14 +68,15 @@ let rec inferType (binding: Binding) : BindingType =
     | InvokeBinding { Argument = argument; ResultType = resultType} ->
         let argType = argument |> inferType
         FunctionType (argType, resultType)
-    | VarBinding (_, typ) -> typ
+    | ArgBinding (_, typ) -> typ
     | ErrorBinding message -> ErrorType message
 
-let rec private tryBind (expression: Expression) : Binding option =
-    match expression with
-    | IntExpr    i -> Some (IntBinding i)
-    | StringExpr s -> Some (StringBinding s)
-    | _            -> None
+let private compatibleArgumentTypes (invokedBinding: Binding) (argumentType: BindingType) =
+    let invokedType = 
+        match invokedBinding with
+        | InvokeBinding fn -> fn.ResultType
+        | _ -> invokedBinding |> inferType
+    invokedType = argumentType
 
 let rec private toBinding (environment: Map<string, Binding>) (expression : Expression) : Binding * BindingType option =
     match expression with
@@ -86,8 +87,14 @@ let rec private toBinding (environment: Map<string, Binding>) (expression : Expr
     | InvokeExpr (name, argument)       -> 
         match environment.TryFind name with
         | Some (FunctionBinding func) -> 
-            match (tryBind argument), func.Argument.ArgumentType with
-            | (Some invokedBinding), definedType when (inferType invokedBinding) = definedType ->
+            let invokedBinding =
+                match argument with
+                | IdentifierExpr name -> ArgBinding(name, func.Argument.ArgumentType)
+                | _ -> 
+                    let binding, invokedBindingType = toBinding environment argument
+                    binding
+            match compatibleArgumentTypes invokedBinding func.Argument.ArgumentType with
+            | true ->
                 InvokeBinding { 
                     Name = name
                     Argument = invokedBinding
@@ -95,18 +102,9 @@ let rec private toBinding (environment: Map<string, Binding>) (expression : Expr
                         match environment.[name] |> inferType with
                         | FunctionType (argTypes, resultType) -> resultType
                         | otherType -> otherType
-                }, Some definedType
-            | (Some invokedBinding), definedType ->
-                ErrorBinding (sprintf "Expected %s; found %A." (definedType |> prettyPrintType) (invokedBinding |> prettyPrintBinding)), None
-            | None, definedType -> 
-                InvokeBinding { 
-                    Name = name
-                    Argument = VarBinding(func.Argument.Name, definedType)
-                    ResultType = 
-                        match environment.[name] |> inferType with
-                        | FunctionType (argTypes, resultType) -> resultType
-                        | otherType -> otherType
-                }, Some definedType
+                }, Some func.Argument.ArgumentType
+            | false ->
+                ErrorBinding (sprintf "Expected %s; found %A." (func.Argument.ArgumentType |> prettyPrintType) (invokedBinding |> prettyPrintBinding)), None
         | Some bindingType -> ErrorBinding (sprintf "Expected function; found %A" bindingType), None
         | None -> ErrorBinding (sprintf "Undefined function '%s'." name), None
     | ErrorExpr error                   -> ErrorBinding error, None
@@ -151,7 +149,7 @@ let private findError = function
 | Ignore (ErrorBinding error) -> Some (error)
 | _ -> None
 
-let findAllErrors statements = 
+let failIfAnyErrors statements = 
     match statements |> List.choose findError with
     | [] -> succeed statements
     | errors -> fail (errors |> String.concat System.Environment.NewLine)
