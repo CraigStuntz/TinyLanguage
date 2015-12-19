@@ -2,7 +2,7 @@
 
 [<EntryPoint>]
 let main argv = 
-    match Compiler.compile "(inc (inc 2))" with
+    match Compiler.compile "(defun main () (inc (inc 2)))" with
     | Success assemblyBuilder -> 
         assemblyBuilder.Save("test.exe")
         printf "good"

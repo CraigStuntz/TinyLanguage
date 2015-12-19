@@ -12,8 +12,24 @@ open TestHelpers
 
 type IlGeneratorTests () =
     [<Test>] 
-    member this.``should generate IL code for (inc 2) method``() = 
+    member this.``should generate IL code for (defun "main" () (inc 2)) method``() = 
         let expected: Result<Method list, string> = 
-            Success([ { Name = "main"; Instructions = [ Ldc_I4 2; Ldc_I4_1; Add]; ArgumentType = IntType; ReturnType = typeof<int> } ] )
-        let actual = codegen [ Defun { Name = "main"; Argument = { Name = "i"; ArgumentType = IntType }; Body = InvokeBinding { Name = "inc"; Argument = IntBinding 2; ResultType = IntType }; ResultType = IntType } ]
+            Success([ { Name = "main"; Instructions = [ Ldc_I4 2; Ldc_I4_1; Add]; ArgumentType = None; ReturnType = typeof<int> } ] )
+        let actual = 
+            codegen (
+                DefBinding {
+                    VariableName = "main"
+                    VariableBinding = 
+                        FunctionBinding (
+                            UserFunction(
+                                Argument = None,
+                                Body = 
+                                    InvokeBinding { 
+                                        FunctionName = "inc"
+                                        Argument = Some ( IntBinding 2 )
+                                        Function =  Inc 
+                                    },
+                                ResultType = IntType ) )
+                    Body = EmptyBinding
+                })
         actual |> should equal expected

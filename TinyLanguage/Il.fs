@@ -46,7 +46,7 @@ type Instruction =
 
 type Method = {
     Name: string
-    ArgumentType: BindingType 
+    ArgumentType: BindingType option
     Instructions: Instruction list 
     ReturnType:   System.Type
 } 
@@ -119,13 +119,16 @@ let rec typeOf = function
 | FunctionType (_, resultType) -> resultType |> typeOf
 | IntType                      -> typeof<int>
 | StringType                   -> typeof<string> 
-| VoidType                     -> typeof<unit>
 | unexpected                   -> failwithf "Unexpected result type %A." unexpected 
 
 let compileMethod (typeBuilder: TypeBuilder) (compiledMethod: Method) =
+    let arguments =
+        match compiledMethod.ArgumentType with
+        | Some argumentType -> [| typeOf argumentType |]
+        | None -> [||]
     let methodBuilder = 
         let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static ||| MethodAttributes.HideBySig
-        typeBuilder.DefineMethod(compiledMethod.Name, methodAttributes, compiledMethod.ReturnType, [| typeOf compiledMethod.ArgumentType |])
+        typeBuilder.DefineMethod(compiledMethod.Name, methodAttributes, compiledMethod.ReturnType, arguments)
     let ilg = methodBuilder.GetILGenerator() |> emit
     Seq.iter ilg compiledMethod.Instructions 
     ilg Ret

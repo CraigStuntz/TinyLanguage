@@ -11,14 +11,6 @@ type private ParseState = {
 let private error (message: string): ParseState =
     { Expressions = [ ErrorExpr message ]; Remaining = [] }
 
-let private asIdentifiers (expressions: Expression list) : string list option = 
-    let rec asIdentifiers' (accum: string list, expressions: Expression list) =
-        match expressions with 
-        | [] -> accum |> List.rev |> Some
-        | IdentifierExpr name :: rest -> asIdentifiers' (name :: accum, rest)
-        | _ -> None
-    asIdentifiers' ([], expressions)
-
 let rec private parseExpression (state : ParseState): ParseState =
     match state.Remaining with
     | LeftParenthesis     :: Identifier "defun"    :: Identifier name :: rest -> 
@@ -34,6 +26,8 @@ let rec private parseExpression (state : ParseState): ParseState =
         | RightParenthesis :: remaining -> { invoke with Remaining = remaining }
         | []                            -> error ("Expected ')'.") 
         | wrong :: _                    -> error (sprintf "Expected ')'; found %A." wrong) 
+    | LeftParenthesis     :: RightParenthesis :: rest ->
+        { Expressions = state.Expressions @ [ EmptyListExpr ]; Remaining = rest }
     | LeftParenthesis     :: wrong -> error (sprintf "%A cannot follow '('." wrong) 
     | RightParenthesis    :: _     -> error ("Unmatched )")
     | Identifier   name   :: rest  -> 
@@ -43,22 +37,34 @@ let rec private parseExpression (state : ParseState): ParseState =
     | LiteralString   str :: rest  ->  
         { Expressions = state.Expressions @ [ StringExpr str ]; Remaining = rest }    | Unrecognized char   :: _    -> error (sprintf "Unexpected character %A" char )
     | [] -> state
+and private parseDefunBody (name: string, argument: ArgumentExpression option, state : ParseState) =
+    let body = parseExpression { state with Expressions = [] }
+    match body.Expressions with 
+    | [] -> error(sprintf "Implementation expected for function '%s'." name)
+    | [ bodyExpression ] ->
+        { Expressions = state.Expressions @ [ DefunExpr(name, argument, bodyExpression ) ]; Remaining = body.Remaining }
+    | multiple -> error(sprintf "Expected only one expression in implementation of function '%s'." name)
 and private parseDefun (name: string, state : ParseState) =
     let argumentExpr = parseExpression { state with Expressions = [] }
-    match argumentExpr.Expressions |> asIdentifiers with
-    | Some [ argumentName ] -> 
-        let body = parseExpression { argumentExpr with Expressions = [] }
-        match body.Expressions with 
-        | [] -> error(sprintf "Implementation expected for function '%s'." name)
-        | [ bodyExpression ] ->
-            { Expressions = state.Expressions @ [ DefunExpr(name, argumentName, bodyExpression ) ]; Remaining = body.Remaining }
-        | multiple -> error(sprintf "Expected only one expression in implementation of function '%s'." name)
-    | Some _ -> error "Exactly one argument expected."
-    | None -> { state with Expressions = [ ErrorExpr "Argument names must be identifiers." ] }
+    match argumentExpr.Expressions with
+    | [ InvokeExpr(typeName, argumentOption) ] ->
+        match argumentOption with
+        | Some (IdentifierExpr argument) when List.contains typeName [ "bool"; "int" ] ->
+            let argument = Some <| { TypeName = typeName; ArgumentName = argument }
+            parseDefunBody(name, argument, { state with Remaining = argumentExpr.Remaining } )
+        | Some wrong -> { state with Expressions = [ ErrorExpr "Arguments must have a type and an identifier name." ] }
+        | None ->
+            parseDefunBody(name, None, argumentExpr)
+    | [ EmptyListExpr ] -> 
+        parseDefunBody(name, None, { state with Remaining = argumentExpr.Remaining })
+    | ErrorExpr message :: _ -> error message
+    | _ -> error "Exactly one argument expected."
 and private parseInvoke (identifier: string, state : ParseState) =
     match parseExpression { state with Expressions = [] } with
     | { Expressions = [ argument ]; Remaining = rest } ->
-        { Expressions = state.Expressions @ [ InvokeExpr(identifier, argument) ]; Remaining = rest }
+        { Expressions = state.Expressions @ [ InvokeExpr(identifier, Some argument) ]; Remaining = rest }
+    | { Expressions = []; Remaining = rest } ->
+        { Expressions = state.Expressions @ [ InvokeExpr(identifier, None) ]; Remaining = rest }
     | _ -> error "Exactly one argument expected."
 
 let rec private parseExpressions (state : ParseState): ParseState =

@@ -7,149 +7,262 @@ type BindingType =
     | IntType
     | BoolType
     | StringType
-    | VoidType
-    | FunctionType of BindingType * BindingType
+    | FunctionType of BindingType option * BindingType
     | ErrorType of string
 
 let rec prettyPrintType = function 
-| IntType     -> "integer"
-| BoolType    -> "boolean"
+| IntType     -> "int"
+| BoolType    -> "bool"
 | StringType  -> "string"
-| VoidType    -> "void"
-| FunctionType (argumentType, resultType) -> 
-    sprintf "%s -> %s" (prettyPrintType argumentType) (prettyPrintType resultType)
+| FunctionType (argument, resultType) -> 
+    match argument with
+    | Some argumentBindingType ->
+        sprintf "%s -> %s" (prettyPrintType argumentBindingType) (prettyPrintType resultType)
+    | None ->
+        sprintf "-> %s" (prettyPrintType resultType)
 | ErrorType message -> 
     sprintf "Error (%s)" message
 
 type ArgumentBinding = {
-    Name: string
+    ArgumentName: string
     ArgumentType: BindingType
 }
+    
+let private toArgumentBinding = function
+| Some (argument: ArgumentExpression) -> 
+    Some {
+        ArgumentName = argument.ArgumentName
+        ArgumentType = 
+            match argument.TypeName with
+            | "int"    -> IntType
+            | "bool"   -> BoolType
+            | "string" -> StringType
+            | wrong    -> ErrorType (sprintf "Expected argument type; found '%s'." wrong)
+    }
+| None -> None
 
-type Function = {
-    Name:       string
-    Argument:   ArgumentBinding
-    Body:       Binding
-    ResultType: BindingType
-}
+type Function = 
+    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: BindingType
+    | Inc          
 and Invocation = {
-    Name:       string
-    Argument:   Binding
-    ResultType: BindingType
+    FunctionName: string
+    Function:     Function
+    Argument:     Binding option
 }
-and Statement =
-    | Defun  of Function
-    | Ignore of Binding
+and Def = {
+    VariableName:    string
+    VariableBinding: Binding
+    Body:            Binding
+}
 and Binding = 
     | BoolBinding     of bool
     | IntBinding      of int 
     | StringBinding   of string
+    | VariableBinding of variableName: string * variableType: BindingType
     | InvokeBinding   of Invocation
     | FunctionBinding of Function
-    | ArgBinding      of string * BindingType
-    | ErrorBinding    of string
+    | IncBinding      of Binding   // Eventually replace this with a list of builtins
+    |   DefBinding      of Def
+    | ErrorBinding    of string * Binding
+    | EmptyBinding
 
 let rec prettyPrintBinding = function
 | BoolBinding     value  -> sprintf "%A" value
 | IntBinding      value  -> sprintf "%d" value
 | StringBinding   value  -> sprintf "%s" value
-| InvokeBinding   value  -> sprintf "(%s %s)" value.Name (value.Argument |> prettyPrintBinding)
-| FunctionBinding value  -> value.Name
-| ArgBinding (name, typ) -> sprintf "(%s: %A)" name typ
-| ErrorBinding  message  -> sprintf "Error (%s)" message
+| VariableBinding (variableName = name)  -> name
+| IncBinding binding     -> 
+    sprintf "(inc %s)" (binding |> prettyPrintBinding)
+| InvokeBinding   value  -> 
+    match value.Argument with
+    | Some argument -> 
+        sprintf "(%s %s)" value.FunctionName (argument |> prettyPrintBinding)
+    | None -> 
+        sprintf "(%s)" value.FunctionName
+| FunctionBinding value  -> 
+    match value with
+    | UserFunction (argument, body, resultType) ->
+        match argument with
+        | Some arg -> sprintf "(lambda %s %s)" arg.ArgumentName (prettyPrintBinding body)
+        | None     -> sprintf "(lambda () %s)" (prettyPrintBinding body)
+    | Inc -> "inc"
+| DefBinding      value  ->
+    match value.Body with
+    | FunctionBinding (UserFunction (argument, body, resultType)) -> 
+        match argument with
+        | Some arg -> 
+            sprintf "(defun %s (%s %s) %s)" 
+                value.VariableName (prettyPrintType arg.ArgumentType) arg.ArgumentName (prettyPrintBinding body)
+        | None  -> 
+            sprintf "(defun %s () %s)" 
+                value.VariableName (prettyPrintBinding body)    
+    | _  -> sprintf "(def %s %s)" value.VariableName (prettyPrintBinding value.Body)
+| ErrorBinding  (message, binding)  -> sprintf "Error (%s) %s%s" message System.Environment.NewLine (prettyPrintBinding binding)
+| EmptyBinding -> ""
 
 let rec inferType (binding: Binding) : BindingType =
     match binding with
     | BoolBinding   _ -> BoolType
     | IntBinding    _ -> IntType
+    | IncBinding    _ -> IntType
     | StringBinding _ -> StringType
-    | FunctionBinding { Name = name; Argument = argBinding; Body = bodyBinding; ResultType = resultType } ->
-        FunctionType (argBinding.ArgumentType, resultType)
-    | InvokeBinding { Argument = argument; ResultType = resultType} ->
-        let argType = argument |> inferType
+    | VariableBinding (variableType = variableType) -> variableType
+    | FunctionBinding (Inc _) ->
+        FunctionType(Some IntType, IntType)
+    | FunctionBinding ( UserFunction (Argument = argument; ResultType = resultType )) ->
+        match argument with
+        | Some argumentBinding -> FunctionType (Some argumentBinding.ArgumentType, resultType)
+        | None                 -> FunctionType (None, resultType)
+    | InvokeBinding { Argument = _; Function = Inc } ->
+        FunctionType (Some IntType, IntType)
+    | InvokeBinding { Argument = argument; Function = UserFunction (_, _, resultType) } ->
+        let argType = 
+            match argument with
+            | Some arg -> Some(arg |> inferType)
+            | None     -> None
         FunctionType (argType, resultType)
-    | ArgBinding (_, typ) -> typ
-    | ErrorBinding message -> ErrorType message
+    | DefBinding { Body = body } -> body |> inferType
+    | ErrorBinding (message, _) -> ErrorType message
+    | EmptyBinding -> ErrorType "EmptyBinding has no type"
 
-let private compatibleArgumentTypes (invokedBinding: Binding) (argumentType: BindingType) =
-    let invokedType = 
-        match invokedBinding with
-        | InvokeBinding fn -> fn.ResultType
-        | _ -> invokedBinding |> inferType
-    invokedType = argumentType
+let private argumentTypeError (invokedBinding: Binding option) (func: Function) =
+    let definedArgumentType = 
+        match func with
+        | Inc -> Some IntType
+        | UserFunction (Some argument, _, _) -> Some argument.ArgumentType
+        | UserFunction _ -> None
+    match invokedBinding, definedArgumentType with
+    | None, None -> 
+        None
+    | Some invoked, None -> 
+        Some (sprintf "Expected no arguments, but found %s." (invoked |> prettyPrintBinding))
+    | None, Some defined -> 
+        Some (sprintf "Expected %s argument, but no arguments given." (defined |> prettyPrintType))
+    | Some invoked, Some defined ->
+        match invoked |> inferType with 
+        | bindingType                  when bindingType = defined -> None
+        | FunctionType (_, resultType) when resultType  = defined -> None
+        | _ -> 
+            Some (sprintf "Expected %s argument, but found %s." (defined |> prettyPrintType) (invoked |> prettyPrintBinding))
 
-let rec private toBinding (environment: Map<string, Binding>) (expression : Expression) : Binding * BindingType option =
+let extendEnvironment  (environment: Map<string, Binding>) (argument : ArgumentBinding option) : Map<string, Binding> =
+    match argument with
+    | None -> 
+        environment
+    | Some argumentBinding ->
+        environment.Add(argumentBinding.ArgumentName, VariableBinding(variableName = argumentBinding.ArgumentName, variableType = argumentBinding.ArgumentType))
+
+let rec private toInvokedArgumentBinding (environment: Map<string, Binding>) (expression : Expression option) : Binding option =
+    match expression with 
+    | None -> 
+        None 
+    | Some invokedArgument -> 
+        Some(toBinding environment invokedArgument)
+
+and private toBinding (environment: Map<string, Binding>) (expression : Expression) : Binding =
     match expression with
-    | IdentifierExpr name               -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name), None
-    | IntExpr n                         -> IntBinding n, None
-    | StringExpr str                    -> StringBinding str, None
-    | DefunExpr _                       -> failwith "DefunExpr should be hanlded by fromExpression and isn't allowed here"
+    | EmptyListExpr                     -> failwith "() should never happen here"
+    | IdentifierExpr name               -> 
+        match environment.TryFind name with
+        | Some binding -> binding
+        | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name, EmptyBinding)
+    | IntExpr n                         -> IntBinding n
+    | StringExpr str                    -> StringBinding str
+    | DefunExpr (name = name; argument = argument; body = body) -> 
+        let argumentBinding = argument |> toArgumentBinding
+        let bodyEnvironment = extendEnvironment environment argumentBinding
+        let bodyBinding = toBinding bodyEnvironment body
+        FunctionBinding (UserFunction (argumentBinding, bodyBinding, bodyBinding |> inferType))
     | InvokeExpr (name, argument)       -> 
         match environment.TryFind name with
         | Some (FunctionBinding func) -> 
-            let invokedBinding =
-                match argument with
-                | IdentifierExpr name -> ArgBinding(name, func.Argument.ArgumentType)
-                | _ -> 
-                    let binding, invokedBindingType = toBinding environment argument
-                    binding
-            match compatibleArgumentTypes invokedBinding func.Argument.ArgumentType with
-            | true ->
+            let argumentBinding = toInvokedArgumentBinding environment argument
+            match argumentTypeError argumentBinding func with
+            | None ->
                 InvokeBinding { 
-                    Name = name
-                    Argument = invokedBinding
-                    ResultType = 
-                        match environment.[name] |> inferType with
-                        | FunctionType (argTypes, resultType) -> resultType
-                        | otherType -> otherType
-                }, Some func.Argument.ArgumentType
-            | false ->
-                ErrorBinding (sprintf "Expected %s; found %A." (func.Argument.ArgumentType |> prettyPrintType) (invokedBinding |> prettyPrintBinding)), None
-        | Some bindingType -> ErrorBinding (sprintf "Expected function; found %A" bindingType), None
-        | None -> ErrorBinding (sprintf "Undefined function '%s'." name), None
-    | ErrorExpr error                   -> ErrorBinding error, None
-
-
-type private BindingState = {
-    Environment: Map<string, Binding>
-    Statements: Statement list
-}
+                    FunctionName = name
+                    Function = func
+                    Argument = argumentBinding
+                }
+            | Some argumentTypeErrorMessage ->
+                ErrorBinding (argumentTypeErrorMessage, EmptyBinding)
+        | Some bindingType -> ErrorBinding (sprintf "Expected function; found %A" bindingType, EmptyBinding)
+        | None -> ErrorBinding (sprintf "Undefined function '%s'." name, EmptyBinding)
+    | ErrorExpr error                   -> ErrorBinding(error, EmptyBinding)
  
-let rec private fromExpression (bindingState : BindingState) (expression : Expression) : BindingState = 
-    match expression with
-    | DefunExpr (name, argument, body) when (not (bindingState.Environment.ContainsKey name)) ->  
-        match body |> (toBinding bindingState.Environment) with
-        | bodyBinding, Some argumentType ->
-            let defun = { Name = name; Argument = { Name = argument; ArgumentType = argumentType }; Body = bodyBinding; ResultType = inferType bodyBinding }
-            { Environment = bindingState.Environment.Add(name, FunctionBinding defun); Statements = bindingState.Statements @ [ Defun defun ] }
-        | _, None -> 
-            { bindingState with Statements = bindingState.Statements @ [ Ignore (ErrorBinding (sprintf "Could not infer type of argument %s." argument)) ] }
-    | DefunExpr (name, _, _) -> 
-        { bindingState with Statements = bindingState.Statements @ [ Ignore (ErrorBinding (sprintf "Function '%s' is already defined." name)) ] }
-    | _ -> 
-        let statement', _ = toBinding bindingState.Environment expression
-        { bindingState with Statements = bindingState.Statements @ [ Ignore statement' ]}
+let rec private expressionsToBinding (environment: Map<string, Binding>) (expressions : Expression list) : Binding = 
+    match expressions with
+    | expression :: rest -> 
+        match expression with
+        | DefunExpr (name, argument, body) when (not (environment.ContainsKey name)) ->  
+            let defunBinding = expression |> toBinding environment
+            match defunBinding with
+            | FunctionBinding functionBinding -> 
+                let environment' = environment.Add(name, defunBinding)
+                DefBinding { 
+                    VariableName =    name
+                    VariableBinding = defunBinding
+                    Body =            expressionsToBinding environment' rest }
+            | notFunction -> ErrorBinding (sprintf "Sorry, we don't support %A bindings just yet." notFunction, expressionsToBinding environment rest)
+        | DefunExpr (name, _, _) -> 
+            ErrorBinding (sprintf "Function '%s' is already defined." name, expressionsToBinding environment rest)
+        | _ -> 
+            match rest with 
+            | []  -> toBinding environment expression
+            | _   -> ErrorBinding ("Unexpected extra statements.", EmptyBinding)
+    | [] -> EmptyBinding
 
 let private builtins: Map<string, Binding> = 
     [
-        ("inc", FunctionBinding { 
-            Name = "inc"; 
-            Argument = { Name = "value"; ArgumentType = IntType }    
-            Body = IntBinding 0; 
-            ResultType = IntType 
-        })
+        ("inc", FunctionBinding Inc)
     ] |> Map.ofList
 
-let fromExpressions (expressions : Expression list) : Statement list = 
-    let initialState = { Environment = builtins; Statements = List.empty }
-    let statements = List.fold fromExpression initialState expressions
-    statements.Statements
+let fromExpressions (expressions : Expression list) : Binding = 
+    expressionsToBinding builtins expressions
 
-let private findError = function
-| Ignore (ErrorBinding error) -> Some (error)
-| _ -> None
+let rec bindingExists (predicate: Binding -> bool) (binding: Binding) = 
+    if (predicate(binding))
+    then true
+    else
+    match binding with 
+        | ErrorBinding (error, bindings) -> 
+            bindingExists predicate bindings
+        | FunctionBinding (UserFunction(_, body, _)) -> 
+            bindingExists predicate body  
+        | InvokeBinding  { Argument = Some argumentBinding } ->
+            bindingExists predicate argumentBinding
+        | DefBinding { VariableBinding = variableBinding; Body = bodyBinding } ->
+            bindingExists predicate variableBinding || bindingExists predicate bodyBinding
+        | BoolBinding _ 
+        | FunctionBinding Inc
+        | IncBinding _
+        | IntBinding  _ 
+        | InvokeBinding _
+        | StringBinding _
+        | VariableBinding _
+        | EmptyBinding -> 
+            false
 
-let failIfAnyErrors statements = 
-    match statements |> List.choose findError with
+let rec private findErrors = function
+| ErrorBinding (error, bindings) -> 
+    error :: findErrors bindings
+| FunctionBinding (UserFunction(_, body, _)) -> 
+    findErrors body  
+| InvokeBinding  { Argument = Some argumentBinding } ->
+    findErrors argumentBinding
+| DefBinding { VariableBinding = variableBinding; Body = bodyBinding } ->
+    findErrors variableBinding @ findErrors bodyBinding
+| BoolBinding _ 
+| FunctionBinding Inc
+| IncBinding _
+| IntBinding  _ 
+| InvokeBinding _
+| StringBinding _
+| VariableBinding _
+| EmptyBinding -> 
+    []
+
+let failIfAnyErrors (statements : Binding) = 
+    match statements |> findErrors with
     | [] -> succeed statements
     | errors -> fail (errors |> String.concat System.Environment.NewLine)
