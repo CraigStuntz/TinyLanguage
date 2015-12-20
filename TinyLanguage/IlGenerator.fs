@@ -32,7 +32,7 @@ let rec private codegenBinding (binding : Binding) =
         let invoke = (name |> nameToOper |> codegenOper)
         match argument with 
         | Some arg -> 
-            let arguments = arg |> codegenBinding
+            let arguments = arg |> codegenBinding |> OptimizeIl.optimize
             arguments @ invoke
         | None -> invoke
     | wrong -> failwithf "Sorry, you can't pass %A here!" wrong
@@ -44,7 +44,7 @@ let private codegenStatements (statement : Binding): Method list =
             match argument with
             | Some arg -> Some arg.ArgumentType
             | None -> None
-        let instructions = codegenBinding body
+        let instructions = codegenBinding body |> OptimizeIl.optimize
         [{ 
             Name = name
             Instructions = instructions
