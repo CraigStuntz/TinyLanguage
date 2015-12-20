@@ -1,10 +1,8 @@
 ﻿module IlGenerator
 
-open Binding
+open BindingTree
 open Il
-open Parser
 open Railway
-open Syntax
 
 type Builtin = 
     | IncInt
@@ -59,7 +57,7 @@ let rec private hasMain (statements : Binding) : bool =
     let isMain = function 
         |  DefBinding { VariableName = "main"; VariableBinding = FunctionBinding _ } -> true
         | _ -> false
-    Binding.bindingExists isMain statements
+    Binder.bindingExists isMain statements
 
 
 let private ensureHasMain (statements : Binding) : Result<Binding, string> =
@@ -70,6 +68,6 @@ let private ensureHasMain (statements : Binding) : Result<Binding, string> =
 
 let codegen (statements : Binding): Result<Method list, string> = 
     statements 
-        |> Binding.failIfAnyErrors
+        |> Binder.failIfAnyErrors
         |> Railway.bind ensureHasMain
         |> Railway.map  codegenStatements

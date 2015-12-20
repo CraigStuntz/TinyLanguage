@@ -2,13 +2,13 @@
 
 open NUnit.Framework
 open FsUnit
-open Binding
-open Lexer
-open Parser
+open BindingTree
+open BindingTree
+open Binder
 
 type BindingTests() =
     let bind (source: string) : Binding =
-        source |> Lexer.lex |> Parser.parse |> Binding.fromExpressions
+        source |> Lexer.lex |> Parser.parse |> Binder.fromExpressions
 
     [<Test>]
     member this.``should generate correct binding for plain expression``() = 
@@ -30,10 +30,10 @@ type BindingTests() =
     [<Test>]
     member this.``should return error for incorrect argument type``() = 
         let source = "(inc \"Hi!\")"
-        let expectedError : Railway.Result<Binding.Binding, string> = Railway.fail "Expected int argument, but found Hi!."
+        let expectedError : Railway.Result<Binding, string> = Railway.fail "Expected int argument, but found Hi!."
 
         let actual = bind source
-        let actualErrors = Binding.failIfAnyErrors actual
+        let actualErrors = Binder.failIfAnyErrors actual
 
         actualErrors |> should equal expectedError
         
@@ -42,9 +42,9 @@ type BindingTests() =
         let source = """
         (defun add-1 (int a) (inc a))
         (defun add-1 (int a) (inc a))"""
-        let expectedError : Railway.Result<Binding.Binding, string> = Railway.fail "Function 'add-1' is already defined."
+        let expectedError : Railway.Result<Binding, string> = Railway.fail "Function 'add-1' is already defined."
 
         let actual = bind source
-        let actualErrors = Binding.failIfAnyErrors actual
+        let actualErrors = Binder.failIfAnyErrors actual
 
         actualErrors |> should equal expectedError

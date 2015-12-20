@@ -1,14 +1,11 @@
 ﻿namespace TinyLangage.Tests.IlGenerator
 
 open NUnit.Framework
-open Binding
+open BindingTree
 open FsUnit
 open Il
 open IlGenerator
-open Parser
 open Railway
-open Syntax
-open TestHelpers
 
 type IlGeneratorTests () =
     [<Test>] 

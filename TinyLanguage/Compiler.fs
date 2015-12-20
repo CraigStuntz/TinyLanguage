@@ -12,6 +12,6 @@ let private optimizeIl (name, instructions) =
 let compile =
     Lexer.lex
         >> Parser.parse
-        >> Binding.fromExpressions
+        >> Binder.fromExpressions
         >> IlGenerator.codegen
         >> Railway.map Il.toAssemblyBuilder

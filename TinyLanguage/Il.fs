@@ -3,7 +3,8 @@
 open System
 open System.Reflection
 open System.Reflection.Emit
-open Binding
+open BindingTree
+open Binder
 
 type Instruction = 
     | Add 
