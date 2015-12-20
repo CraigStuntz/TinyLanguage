@@ -102,7 +102,6 @@ let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodTo
         tb.DefineMethod(methodName, ma)
     let ilg = mb.GetILGenerator() |> emit
     let ci = methodToCall.ReflectedType.GetConstructor([||])
-    ilg (Ldstr "")
     ilg (Call methodToCall)
     if methodToCall.ReturnType <> null then
         ilg (DeclareLocal methodToCall.ReturnType)

@@ -5,6 +5,7 @@ let main argv =
     match Compiler.compile "(defun main () (inc (inc 2)))" with
     | Success assemblyBuilder -> 
         assemblyBuilder.Save("test.exe")
+        System.Diagnostics.Process.Start("test.exe") |> ignore
         printf "good"
     | Failure errorMessages -> eprintf "Failed. %s" errorMessages
 
