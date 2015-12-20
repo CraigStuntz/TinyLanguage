@@ -46,7 +46,7 @@ and Binding =
     | InvokeBinding   of Invocation
     | FunctionBinding of Function
     | IncBinding      of Binding   // Eventually replace this with a list of builtins
-    |   DefBinding      of Def
+    | DefBinding      of Def
     | ErrorBinding    of string * Binding
     | EmptyBinding
 
