@@ -8,7 +8,7 @@ open Il
 let compile =
     Lexer.lex
     >> Parser.parse
-    >> Binder.fromExpressions
+    >> Binder.bind
     >> IlGenerator.codegen
     >> Railway.map OptimizeIl.optimize
     >> Railway.map Il.toAssemblyBuilder

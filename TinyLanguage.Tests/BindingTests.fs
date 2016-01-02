@@ -8,7 +8,7 @@ open Binder
 
 type BindingTests() =
     let bind (source: string) : Binding =
-        source |> Lexer.lex |> Parser.parse |> Binder.fromExpressions
+        source |> Lexer.lex |> Parser.parse |> Binder.bind
 
     [<Test>]
     member this.``should generate correct binding for plain expression``() = 

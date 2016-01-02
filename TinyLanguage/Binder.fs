@@ -134,7 +134,7 @@ let private builtins: Map<string, Binding> =
         ("inc", FunctionBinding Inc)
     ] |> Map.ofList
 
-let fromExpressions (expressions : Expression list) : Binding = 
+let bind (expressions : Expression list) : Binding = 
     expressionsToBinding builtins expressions
 
 let rec bindingExists (predicate: Binding -> bool) (binding: Binding) = 
