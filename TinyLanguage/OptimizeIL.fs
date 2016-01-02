@@ -28,4 +28,9 @@ module OptimizeIl
         | Stloc i when i <= maxByte -> Stloc_S(Convert.ToByte(i))
         | instruction -> instruction
 
-    let optimize = List.map optimalShortEncodingFor
+    let private optimizeInstructions = List.map optimalShortEncodingFor
+
+    let private optimizeMethod (meth : Method) = 
+        { meth with Instructions = optimizeInstructions meth.Instructions}
+
+    let optimize : (Method list -> Method list) = List.map optimizeMethod

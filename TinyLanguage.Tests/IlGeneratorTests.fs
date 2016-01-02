@@ -11,7 +11,7 @@ type IlGeneratorTests () =
     [<Test>] 
     member this.``should generate IL code for (defun "main" () (inc 2)) method``() = 
         let expected: Result<Method list, string> = 
-            Success([ { Name = "main"; Instructions = [ Ldc_I4_2; Ldc_I4_1; Add]; ArgumentType = None; ReturnType = typeof<int> } ] )
+            Success([ { Name = "main"; Instructions = [ Ldc_I4 2; Ldc_I4_1; Add]; ArgumentType = None; ReturnType = typeof<int> } ] )
         let actual = 
             codegen (
                 DefBinding {
