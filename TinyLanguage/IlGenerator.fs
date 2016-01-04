@@ -8,15 +8,19 @@ type Builtin =
     | IncInt
     | WriteLine
         
-let writeLineMethod = typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
+let private writeLineMethod = 
+    typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
 
 let private codegenOper = function
-    | IncInt       -> [ Instruction.Ldc_I4_1; Instruction.Add ]
-    | WriteLine -> [ Instruction.Call writeLineMethod ]
+    | IncInt    -> 
+        [   Instruction.Ldc_I4_1
+            Instruction.Add ]
+    | WriteLine -> 
+        [   Instruction.Call writeLineMethod ]
 
 let private nameToOper = function
-| "inc" -> IncInt
-| "WriteLine" -> WriteLine
+| "inc"   -> IncInt
+| "print" -> WriteLine
 | unknown -> failwithf "Unknown function %s" unknown
 
 let rec private codegenBinding (binding : Binding) = 
