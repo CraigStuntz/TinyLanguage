@@ -58,6 +58,7 @@
     <Compile Include="ParserTests.fs" />
     <Compile Include="BindingTests.fs" />
     <Compile Include="IlGeneratorTests.fs" />
+    <Compile Include="OptimizeBindingTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FsCheck">

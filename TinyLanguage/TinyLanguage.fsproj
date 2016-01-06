@@ -57,6 +57,7 @@
     <Compile Include="Binder.fs" />
     <Compile Include="Il.fs" />
     <Compile Include="OptimizeIL.fs" />
+    <Compile Include="OptimizeBinding.fs" />
     <Compile Include="IlGenerator.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Program.fs" />

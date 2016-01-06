@@ -3,7 +3,6 @@
 open NUnit.Framework
 open FsUnit
 open BindingTree
-open BindingTree
 open Binder
 
 type BindingTests() =
