@@ -6,6 +6,7 @@ let private optimizeInc (binding: Binding) : Binding =
     match binding with 
     | IncBinding (IntBinding number) 
         -> IntBinding (number + 1)
+    | IncBinding _
     | BoolBinding _ 
     | IntBinding _  
     | StringBinding _ 
@@ -16,12 +17,13 @@ let private optimizeInc (binding: Binding) : Binding =
     | ErrorBinding _  
     | EmptyBinding _    
         -> binding 
-    | IncBinding _
-        -> binding
 
-let optimizeNode (binding: Binding) : Binding =
+
+let private optimizeNode (binding: Binding) : Binding =
     binding |> optimizeInc // could chain other optimizers here
 
+
+// now recursively optimize the entire tree
 let rec optimize (binding: Binding) : Binding =
     let bindingWithOptimizedLeaves = 
         match binding with
