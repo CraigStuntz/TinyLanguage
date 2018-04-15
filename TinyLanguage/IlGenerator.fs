@@ -4,14 +4,14 @@ open BindingTree
 open Il
 open Railway
 
-type Builtin = 
+type Instrinsic = 
     | IncInt
     | WriteLine
         
 let private writeLineMethod = 
     typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
 
-let private codegenOper = function
+let private codegenIntrinsic = function
     | IncInt    -> 
         [   Instruction.Ldc_I4_1
             Instruction.Add ]
@@ -33,7 +33,7 @@ let rec private codegenBinding (binding : Binding) =
     | IntBinding    n  -> [Ldc_I4 n]
     | StringBinding s  -> [Ldstr s]
     | InvokeBinding { FunctionName = name; Argument = argument } -> 
-        let invoke = (name |> nameToOper |> codegenOper)
+        let invoke = (name |> nameToOper |> codegenIntrinsic)
         match argument with 
         | Some arg -> 
             let arguments = arg |> codegenBinding

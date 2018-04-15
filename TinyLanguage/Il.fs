@@ -4,8 +4,8 @@ open System
 open System.Reflection
 open System.Reflection.Emit
 open BindingTree
-open Binder
 
+[<NoComparison>]
 type Instruction = 
     | Add 
     | Call         of System.Reflection.MethodInfo
@@ -45,6 +45,7 @@ type Instruction =
     | Stloc_S      of byte
     | Sub
 
+[<NoComparison>]
 type Method = {
     Name: string
     ArgumentType: BindingType option
@@ -93,26 +94,29 @@ let private emit (ilg : Emit.ILGenerator) inst =
     | Sub            -> ilg.Emit(OpCodes.Sub)
 
 let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodToCall: MethodBuilder) = 
-    let tb = 
+    let typeBuilder = 
         let className = "Program"
-        let ta = TypeAttributes.NotPublic ||| TypeAttributes.AutoLayout ||| TypeAttributes.AnsiClass ||| TypeAttributes.BeforeFieldInit
-        moduleContainingMethod.DefineType(className, ta)
-    let mb = 
-        let ma = MethodAttributes.Public ||| MethodAttributes.Static 
+        let typeAttributes = 
+            TypeAttributes.NotPublic 
+            ||| TypeAttributes.AutoLayout 
+            ||| TypeAttributes.AnsiClass 
+            ||| TypeAttributes.BeforeFieldInit
+        moduleContainingMethod.DefineType(className, typeAttributes)
+    let methodBuilder = 
+        let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static 
         let methodName = "Main"
-        tb.DefineMethod(methodName, ma)
-    let ilg = mb.GetILGenerator() |> emit
-    let ci = methodToCall.ReflectedType.GetConstructor([||])
-    ilg (Call methodToCall)
+        typeBuilder.DefineMethod(methodName, methodAttributes)
+    let ilGenerator = methodBuilder.GetILGenerator() |> emit
+    ilGenerator (Call methodToCall)
     if methodToCall.ReturnType <> null then
-        ilg (DeclareLocal methodToCall.ReturnType)
-        ilg Stloc_0
-        ilg (Ldloc_S 0uy)
+        ilGenerator (DeclareLocal methodToCall.ReturnType)
+        ilGenerator Stloc_0
+        ilGenerator (Ldloc_S 0uy)
         let writeln = typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
-        ilg (Call writeln)
-    ilg Ret
-    tb.CreateType() |> ignore
-    mb
+        ilGenerator (Call writeln)
+    ilGenerator Ret
+    typeBuilder.CreateType() |> ignore
+    methodBuilder
 
 let rec typeOf = function
 | BoolType                     -> typeof<bool>
@@ -129,16 +133,10 @@ let compileMethod (typeBuilder: TypeBuilder) (compiledMethod: Method) =
     let methodBuilder = 
         let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static ||| MethodAttributes.HideBySig
         typeBuilder.DefineMethod(compiledMethod.Name, methodAttributes, compiledMethod.ReturnType, arguments)
-    let ilg = methodBuilder.GetILGenerator() |> emit
-    Seq.iter ilg compiledMethod.Instructions 
-    ilg Ret
+    let ilGenerator = methodBuilder.GetILGenerator() |> emit
+    Seq.iter ilGenerator compiledMethod.Instructions 
+    ilGenerator Ret
     (compiledMethod.Name, methodBuilder)
-
-let rec private findMain (methods : Method list) =
-    match methods with
-    | [] -> failwith "main method not found"
-    | m :: rest when m.Name = "main" -> m
-    | _ :: rest -> findMain rest
 
 let private compileModule(moduleName: string, methods: Method list) =
     let moduleNameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension moduleName
@@ -154,7 +152,6 @@ let private compileModule(moduleName: string, methods: Method list) =
         methods 
         |> List.map (compileMethod typeBuilder)
         |> Map.ofList
-    let entryPointType = typeBuilder.CreateType()
     let entryPoint = compileEntryPoint moduleBuilder methodBuilders.["main"]
     assemblyBuilder.SetEntryPoint(entryPoint, PEFileKinds.ConsoleApplication)
     moduleBuilder.CreateGlobalFunctions()
