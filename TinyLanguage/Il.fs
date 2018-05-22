@@ -48,7 +48,7 @@ type Instruction =
 [<NoComparison>]
 type Method = {
     Name: string
-    ArgumentType: BindingType option
+    ArgumentType: ExpressionType option
     Instructions: Instruction list 
     ReturnType:   System.Type
 } 
@@ -93,15 +93,7 @@ let private emit (ilg : Emit.ILGenerator) inst =
     | Stloc_S  i     -> ilg.Emit(OpCodes.Stloc_S, i)
     | Sub            -> ilg.Emit(OpCodes.Sub)
 
-let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodToCall: MethodBuilder) = 
-    let typeBuilder = 
-        let className = "Program"
-        let typeAttributes = 
-            TypeAttributes.NotPublic 
-            ||| TypeAttributes.AutoLayout 
-            ||| TypeAttributes.AnsiClass 
-            ||| TypeAttributes.BeforeFieldInit
-        moduleContainingMethod.DefineType(className, typeAttributes)
+let private compileEntryPoint (typeBuilder : TypeBuilder) (methodToCall: MethodBuilder) = 
     let methodBuilder = 
         let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static 
         let methodName = "Main"
@@ -115,7 +107,6 @@ let private compileEntryPoint (moduleContainingMethod : ModuleBuilder) (methodTo
         let writeln = typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
         ilGenerator (Call writeln)
     ilGenerator Ret
-    typeBuilder.CreateType() |> ignore
     methodBuilder
 
 let rec typeOf = function
@@ -145,14 +136,21 @@ let private compileModule(moduleName: string, methods: Method list) =
         AppDomain.CurrentDomain.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndSave)
     let moduleBuilder = assemblyBuilder.DefineDynamicModule(moduleName)
     let typeBuilder = 
-        let className = "__CompiledMethods"
-        let typeAttributes = TypeAttributes.Public ||| TypeAttributes.Abstract ||| TypeAttributes.Sealed ||| TypeAttributes.AutoLayout ||| TypeAttributes.AnsiClass ||| TypeAttributes.BeforeFieldInit
+        let className = "Program"
+        let typeAttributes = 
+            TypeAttributes.Public 
+            ||| TypeAttributes.Abstract 
+            ||| TypeAttributes.Sealed 
+            ||| TypeAttributes.AutoLayout 
+            ||| TypeAttributes.AnsiClass 
+            ||| TypeAttributes.BeforeFieldInit
         moduleBuilder.DefineType(className, typeAttributes)
     let methodBuilders = 
         methods 
         |> List.map (compileMethod typeBuilder)
         |> Map.ofList
-    let entryPoint = compileEntryPoint moduleBuilder methodBuilders.["main"]
+    let entryPoint = compileEntryPoint typeBuilder methodBuilders.["main"]
+    typeBuilder.CreateType() |> ignore
     assemblyBuilder.SetEntryPoint(entryPoint, PEFileKinds.ConsoleApplication)
     moduleBuilder.CreateGlobalFunctions()
     assemblyBuilder

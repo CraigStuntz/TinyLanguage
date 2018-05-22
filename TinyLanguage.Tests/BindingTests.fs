@@ -21,7 +21,7 @@ type BindingTests() =
     [<Test>]
     member this.``should return error for unbound invocation``() = 
         let source = "(bad-method 2)"
-        let expected = ErrorBinding ("Undefined function 'bad-method'.", EmptyBinding)
+        let expected = ErrorBinding "Undefined function 'bad-method'."
         let actual = bind source
 
         actual |> should equal expected

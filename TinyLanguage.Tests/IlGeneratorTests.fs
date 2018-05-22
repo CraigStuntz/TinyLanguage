@@ -27,6 +27,6 @@ type IlGeneratorTests () =
                                         Function =  Inc 
                                     },
                                 ResultType = IntType ) )
-                    Body = EmptyBinding
+                    Body = IntBinding 1
                 })
         actual |> should equal expected

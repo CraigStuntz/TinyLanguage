@@ -1,10 +1,10 @@
 ﻿module BindingTree
 
-type BindingType =
+type ExpressionType =
     | IntType
     | BoolType
     | StringType
-    | FunctionType of BindingType option * BindingType
+    | FunctionType of ExpressionType option * ExpressionType
     | ErrorType of string
 
 let rec prettyPrintType = function 
@@ -22,11 +22,11 @@ let rec prettyPrintType = function
 
 type ArgumentBinding = {
     ArgumentName: string
-    ArgumentType: BindingType
+    ArgumentType: ExpressionType
 }
 
 type Function = 
-    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: BindingType
+    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: ExpressionType
     | Inc          
 and Invocation = {
     FunctionName: string
@@ -42,13 +42,12 @@ and Binding =
     | BoolBinding     of bool
     | IntBinding      of int 
     | StringBinding   of string
-    | VariableBinding of variableName: string * variableType: BindingType
+    | VariableBinding of variableName: string * variableType: ExpressionType
     | InvokeBinding   of Invocation
     | FunctionBinding of Function
     | IncBinding      of Binding   // Eventually replace this with a list of builtins
     | DefBinding      of Def
-    | ErrorBinding    of string * Binding
-    | EmptyBinding
+    | ErrorBinding    of string
 
 let rec prettyPrintBinding = function
 | BoolBinding     value  -> sprintf "%A" value
@@ -81,6 +80,5 @@ let rec prettyPrintBinding = function
             sprintf "(defun %s () %s)" 
                 value.VariableName (prettyPrintBinding body)    
     | _  -> sprintf "(def %s %s)" value.VariableName (prettyPrintBinding value.Body)
-| ErrorBinding  (message, binding)  -> sprintf "Error (%s) %s%s" message System.Environment.NewLine (prettyPrintBinding binding)
-| EmptyBinding -> ""
+| ErrorBinding message -> sprintf "Error (%s)" message
 

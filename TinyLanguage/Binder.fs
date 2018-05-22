@@ -17,7 +17,7 @@ let private toArgumentBinding = function
     }
 | None -> None
 
-let rec inferType (binding: Binding) : BindingType =
+let rec inferType (binding: Binding) : ExpressionType =
     match binding with
     | BoolBinding   _ -> BoolType
     | IntBinding    _ -> IntType
@@ -39,8 +39,7 @@ let rec inferType (binding: Binding) : BindingType =
             | None     -> None
         FunctionType (argType, resultType)
     | DefBinding { Body = body } -> body |> inferType
-    | ErrorBinding (message, _) -> ErrorType message
-    | EmptyBinding -> ErrorType "EmptyBinding has no type"
+    | ErrorBinding message -> ErrorType message
 
 let private argumentTypeError (invokedBinding: Binding option) (func: Function) =
     let definedArgumentType = 
@@ -82,7 +81,7 @@ and private toBinding (environment: Map<string, Binding>) (expression : Expressi
     | IdentifierExpr name               -> 
         match environment.TryFind name with
         | Some binding -> binding
-        | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name, EmptyBinding)
+        | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name)
     | IntExpr n                         -> IntBinding n
     | StringExpr str                    -> StringBinding str
     | DefunExpr (name = name; argument = argument; body = body) -> 
@@ -102,32 +101,38 @@ and private toBinding (environment: Map<string, Binding>) (expression : Expressi
                     Argument = argumentBinding
                 }
             | Some argumentTypeErrorMessage ->
-                ErrorBinding (argumentTypeErrorMessage, EmptyBinding)
-        | Some bindingType -> ErrorBinding (sprintf "Expected function; found %A" bindingType, EmptyBinding)
-        | None -> ErrorBinding (sprintf "Undefined function '%s'." name, EmptyBinding)
-    | ErrorExpr error                   -> ErrorBinding(error, EmptyBinding)
+                ErrorBinding argumentTypeErrorMessage
+        | Some bindingType -> ErrorBinding (sprintf "Expected function; found %A" bindingType)
+        | None -> ErrorBinding (sprintf "Undefined function '%s'." name)
+    | ErrorExpr error -> ErrorBinding error
  
 let rec private expressionsToBinding (environment: Map<string, Binding>) (expressions : Expression list) : Binding = 
     match expressions with
     | expression :: rest -> 
         match expression with
-        | DefunExpr (name, argument, body) when (not (environment.ContainsKey name)) ->  
+        | DefunExpr (name, _argument, _body) when (not (environment.ContainsKey name)) ->  
             let defunBinding = expression |> toBinding environment
             match defunBinding with
             | FunctionBinding functionBinding -> 
                 let environment' = environment.Add(name, defunBinding)
+                let body = 
+                    match name with 
+                    | "main" ->
+                        InvokeBinding { FunctionName = "main"; Function = functionBinding; Argument = None }
+                    | _ -> 
+                        expressionsToBinding environment' rest
                 DefBinding { 
                     VariableName =    name
                     VariableBinding = defunBinding
-                    Body =            expressionsToBinding environment' rest }
-            | notFunction -> ErrorBinding (sprintf "Sorry, we don't support %A bindings just yet." notFunction, expressionsToBinding environment rest)
+                    Body =            body }
+            | notFunction -> ErrorBinding (sprintf "Sorry, we don't support %A bindings just yet." notFunction)
         | DefunExpr (name, _, _) -> 
-            ErrorBinding (sprintf "Function '%s' is already defined." name, expressionsToBinding environment rest)
+            ErrorBinding (sprintf "Function '%s' is already defined." name)
         | _ -> 
             match rest with 
             | []  -> toBinding environment expression
-            | _   -> ErrorBinding ("Unexpected extra statements.", EmptyBinding)
-    | [] -> EmptyBinding
+            | _   -> ErrorBinding "Unexpected extra statements."
+    | [] -> ErrorBinding "Expected statement here."
 
 let private builtins: Map<string, Binding> = 
     [
@@ -142,8 +147,6 @@ let rec bindingExists (predicate: Binding -> bool) (binding: Binding) =
     then true
     else
     match binding with 
-        | ErrorBinding (error, bindings) -> 
-            bindingExists predicate bindings
         | FunctionBinding (UserFunction(_, body, _)) -> 
             bindingExists predicate body  
         | InvokeBinding  { Argument = Some argumentBinding } ->
@@ -157,12 +160,12 @@ let rec bindingExists (predicate: Binding -> bool) (binding: Binding) =
         | InvokeBinding _
         | StringBinding _
         | VariableBinding _
-        | EmptyBinding -> 
+        | ErrorBinding _    -> 
             false
 
 let rec private findErrors = function
-| ErrorBinding (error, bindings) -> 
-    error :: findErrors bindings
+| ErrorBinding error -> 
+    [ error ]
 | FunctionBinding (UserFunction(_, body, _)) -> 
     findErrors body  
 | InvokeBinding  { Argument = Some argumentBinding } ->
@@ -175,8 +178,7 @@ let rec private findErrors = function
 | IntBinding  _ 
 | InvokeBinding _
 | StringBinding _
-| VariableBinding _
-| EmptyBinding -> 
+| VariableBinding _ -> 
     []
 
 let failIfAnyErrors (statements : Binding) = 

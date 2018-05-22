@@ -15,7 +15,6 @@ let private optimizeInc (binding: Binding) : Binding =
     | InvokeBinding _
     | DefBinding _
     | ErrorBinding _  
-    | EmptyBinding _    
         -> binding 
 
 
