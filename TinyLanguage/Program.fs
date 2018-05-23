@@ -4,9 +4,10 @@
 let main argv = 
     match Compiler.compile "(defun main () (inc (inc 2)))" with
     | Success assemblyBuilder -> 
-        assemblyBuilder.Save("test.exe")
-        System.Diagnostics.Process.Start("test.exe") |> ignore
-        printf "good"
+        let outfileName = "test.exe"
+        assemblyBuilder.Save(outfileName)
+        System.Diagnostics.Process.Start(outfileName) |> ignore
+        printf "Successfully compiled and executed %s" outfileName
     | Failure errorMessages -> eprintf "Failed. %s" errorMessages
 
     System.Console.ReadLine() |> ignore
