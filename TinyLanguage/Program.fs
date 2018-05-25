@@ -7,7 +7,7 @@ let main argv =
         let outfileName = "test.exe"
         assemblyBuilder.Save(outfileName)
         System.Diagnostics.Process.Start(outfileName) |> ignore
-        printf "Successfully compiled and executed %s" outfileName
+        printf "Compiled and executed %s" outfileName
     | Failure errorMessages -> eprintf "Failed. %s" errorMessages
 
     System.Console.ReadLine() |> ignore

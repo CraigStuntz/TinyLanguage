@@ -3,7 +3,7 @@
 open System
 open System.Reflection
 open System.Reflection.Emit
-open BindingTree
+open Binding
 
 [<NoComparison>]
 type Instruction = 
@@ -48,7 +48,7 @@ type Instruction =
 [<NoComparison>]
 type Method = {
     Name: string
-    ArgumentType: ExpressionType option
+    ArgumentType: Type option
     Instructions: Instruction list 
     ReturnType:   System.Type
 } 

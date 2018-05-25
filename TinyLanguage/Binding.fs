@@ -1,32 +1,19 @@
-﻿module BindingTree
+﻿module Binding
 
-type ExpressionType =
+type Type =
     | IntType
     | BoolType
     | StringType
-    | FunctionType of ExpressionType option * ExpressionType
+    | FunctionType of Type option * Type
     | ErrorType of string
-
-let rec prettyPrintType = function 
-| IntType     -> "int"
-| BoolType    -> "bool"
-| StringType  -> "string"
-| FunctionType (argument, resultType) -> 
-    match argument with
-    | Some argumentBindingType ->
-        sprintf "%s -> %s" (prettyPrintType argumentBindingType) (prettyPrintType resultType)
-    | None ->
-        sprintf "-> %s" (prettyPrintType resultType)
-| ErrorType message -> 
-    sprintf "Error (%s)" message
 
 type ArgumentBinding = {
     ArgumentName: string
-    ArgumentType: ExpressionType
+    ArgumentType: Type
 }
 
 type Function = 
-    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: ExpressionType
+    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: Type
     | Inc          
 and Invocation = {
     FunctionName: string
@@ -42,12 +29,27 @@ and Binding =
     | BoolBinding     of bool
     | IntBinding      of int 
     | StringBinding   of string
-    | VariableBinding of variableName: string * variableType: ExpressionType
+    | VariableBinding of variableName: string * variableType: Type
     | InvokeBinding   of Invocation
     | FunctionBinding of Function
     | IncBinding      of Binding   // Eventually replace this with a list of builtins
     | DefBinding      of Def
     | ErrorBinding    of string
+
+
+let rec prettyPrintType = function 
+| IntType     -> "int"
+| BoolType    -> "bool"
+| StringType  -> "string"
+| FunctionType (argument, resultType) -> 
+    match argument with
+    | Some argumentBindingType ->
+        sprintf "%s -> %s" (prettyPrintType argumentBindingType) (prettyPrintType resultType)
+    | None ->
+        sprintf "-> %s" (prettyPrintType resultType)
+| ErrorType message -> 
+    sprintf "Error (%s)" message
+
 
 let rec prettyPrintBinding = function
 | BoolBinding     value  -> sprintf "%A" value

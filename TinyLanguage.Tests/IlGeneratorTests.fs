@@ -1,7 +1,7 @@
 ﻿namespace TinyLangage.Tests.IlGenerator
 
 open NUnit.Framework
-open BindingTree
+open Binding
 open FsUnit
 open Il
 open IlGenerator

@@ -1,6 +1,7 @@
 ﻿module Binder
 
-open BindingTree
+open Binding
+open Context
 open Railway
 open Syntax
 
@@ -17,7 +18,7 @@ let private toArgumentBinding = function
     }
 | None -> None
 
-let rec inferType (binding: Binding) : ExpressionType =
+let rec inferType (binding: Binding) : Type =
     match binding with
     | BoolBinding   _ -> BoolType
     | IntBinding    _ -> IntType
@@ -61,21 +62,15 @@ let private argumentTypeError (invokedBinding: Binding option) (func: Function) 
         | _ -> 
             Some (sprintf "Expected %s argument, but found %s." (defined |> prettyPrintType) (invoked |> prettyPrintBinding))
 
-let extendEnvironment  (environment: Map<string, Binding>) (argument : ArgumentBinding option) : Map<string, Binding> =
-    match argument with
-    | None -> 
-        environment
-    | Some argumentBinding ->
-        environment.Add(argumentBinding.ArgumentName, VariableBinding(variableName = argumentBinding.ArgumentName, variableType = argumentBinding.ArgumentType))
 
-let rec private toInvokedArgumentBinding (environment: Map<string, Binding>) (expression : Expression option) : Binding option =
+let rec private toInvokedArgumentBinding (environment: Context) (expression : Expression option) : Binding option =
     match expression with 
     | None -> 
         None 
     | Some invokedArgument -> 
         Some(toBinding environment invokedArgument)
 
-and private toBinding (environment: Map<string, Binding>) (expression : Expression) : Binding =
+and private toBinding (environment: Context) (expression : Expression) : Binding =
     match expression with
     | EmptyListExpr                     -> failwith "() should never happen here"
     | IdentifierExpr name               -> 
@@ -84,9 +79,12 @@ and private toBinding (environment: Map<string, Binding>) (expression : Expressi
         | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name)
     | IntExpr n                         -> IntBinding n
     | StringExpr str                    -> StringBinding str
-    | DefunExpr (name = name; argument = argument; body = body) -> 
+    | DefunExpr (name = _name; argument = argument; body = body) -> 
         let argumentBinding = argument |> toArgumentBinding
-        let bodyEnvironment = extendEnvironment environment argumentBinding
+        let bodyEnvironment =
+            match argumentBinding with
+            | Some binding -> Context.extend environment (binding.ArgumentName, binding.ArgumentType)
+            | None -> environment
         let bodyBinding = toBinding bodyEnvironment body
         FunctionBinding (UserFunction (argumentBinding, bodyBinding, bodyBinding |> inferType))
     | InvokeExpr (name, argument)       -> 
@@ -106,7 +104,7 @@ and private toBinding (environment: Map<string, Binding>) (expression : Expressi
         | None -> ErrorBinding (sprintf "Undefined function '%s'." name)
     | ErrorExpr error -> ErrorBinding error
  
-let rec private expressionsToBinding (environment: Map<string, Binding>) (expressions : Expression list) : Binding = 
+let rec private expressionsToBinding (environment: Context) (expressions : Expression list) : Binding = 
     match expressions with
     | expression :: rest -> 
         match expression with
@@ -134,13 +132,9 @@ let rec private expressionsToBinding (environment: Map<string, Binding>) (expres
             | _   -> ErrorBinding "Unexpected extra statements."
     | [] -> ErrorBinding "Expected statement here."
 
-let private builtins: Map<string, Binding> = 
-    [
-        ("inc", FunctionBinding Inc)
-    ] |> Map.ofList
 
 let bind (expressions : Expression list) : Binding = 
-    expressionsToBinding builtins expressions
+    expressionsToBinding Context.intrinsics expressions
 
 let rec bindingExists (predicate: Binding -> bool) (binding: Binding) = 
     if (predicate(binding))

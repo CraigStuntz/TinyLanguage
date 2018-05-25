@@ -1,6 +1,6 @@
 ﻿module IlGenerator
 
-open BindingTree
+open Binding
 open Il
 open Railway
 

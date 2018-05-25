@@ -50,8 +50,8 @@
     <Compile Include="Lexer.fs" />
     <Compile Include="Syntax.fs" />
     <Compile Include="Parser.fs" />
-    <Compile Include="PrettyPrinter.fs" />
-    <Compile Include="BindingTree.fs" />
+    <Compile Include="Binding.fs" />
+    <Compile Include="Context.fs" />
     <Compile Include="Binder.fs" />
     <Compile Include="Il.fs" />
     <Compile Include="OptimizeIL.fs" />
