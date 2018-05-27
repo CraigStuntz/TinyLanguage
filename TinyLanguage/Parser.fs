@@ -27,7 +27,7 @@ let rec private parseExpression (state : ParseState): ParseState =
         | []                            -> error ("Expected ')'.") 
         | wrong :: _                    -> error (sprintf "Expected ')'; found %A." wrong) 
     | LeftParenthesis     :: RightParenthesis :: rest ->
-        { Expressions = state.Expressions @ [ EmptyListExpr ]; Remaining = rest }
+        { Expressions = state.Expressions @ [ NilExpr ]; Remaining = rest }
     | LeftParenthesis     :: wrong -> error (sprintf "%A cannot follow '('." wrong) 
     | RightParenthesis    :: _     -> error ("Unmatched )")
     | Identifier   name   :: rest  -> 
@@ -55,7 +55,7 @@ and private parseDefun (name: string, state : ParseState) =
         | Some wrong -> { state with Expressions = [ ErrorExpr "Arguments must have a type and an identifier name." ] }
         | None ->
             parseDefunBody(name, None, argumentExpr)
-    | [ EmptyListExpr ] -> 
+    | [ NilExpr ] -> 
         parseDefunBody(name, None, { state with Remaining = argumentExpr.Remaining })
     | ErrorExpr message :: _ -> error message
     | _ -> error "Exactly one argument expected."

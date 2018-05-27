@@ -7,13 +7,13 @@ type Type =
     | FunctionType of Type option * Type
     | ErrorType of string
 
-type ArgumentBinding = {
+type Argument = {
     ArgumentName: string
     ArgumentType: Type
 }
 
 type Function = 
-    | UserFunction of Argument: ArgumentBinding option * Body: Binding * ResultType: Type
+    | UserFunction of Argument: Argument option * Body: Binding * ResultType: Type
     | Inc          
 and Invocation = {
     FunctionName: string

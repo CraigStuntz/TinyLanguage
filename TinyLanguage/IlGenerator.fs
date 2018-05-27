@@ -58,6 +58,8 @@ let private codegenStatements (statement : Binding): Method list =
     | wrong -> failwithf "Expected Defun, found %A." wrong
 
 let rec private hasMain (statements : Binding) : bool = 
+    // "The entry point method shall either accept no arguments or a vector of strings."
+    // -ECMA-335, II.15.4.1.2 The .entrypoint directive
     let isMain = function 
         |  DefBinding { VariableName = "main"; VariableBinding = FunctionBinding _ } -> true
         | _ -> false

@@ -9,7 +9,7 @@ let rec isTreeWithErrorMessageContaining (messageFragment: string) = function
     match argument with
     | Some expression  -> expression |> (isTreeWithErrorMessageContaining messageFragment)
     | None -> false
-| EmptyListExpr
+| NilExpr
 | IntExpr     _
 | StringExpr  _                 -> false
 | ErrorExpr  message            -> message.Contains(messageFragment)

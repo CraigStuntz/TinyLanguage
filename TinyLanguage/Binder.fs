@@ -5,18 +5,18 @@ open Context
 open Railway
 open Syntax
 
-let private toArgumentBinding = function
-| Some (argument: ArgumentExpression) -> 
-    Some {
-        ArgumentName = argument.ArgumentName
+let private argumentExpressionToArgument (expr: ArgumentExpression) =
+    {
+        ArgumentName = expr.ArgumentName
         ArgumentType = 
-            match argument.TypeName with
+            match expr.TypeName with
             | "int"    -> IntType
             | "bool"   -> BoolType
             | "string" -> StringType
             | wrong    -> ErrorType (sprintf "Expected argument type; found '%s'." wrong)
     }
-| None -> None
+
+let private toArgumentOption = Option.map argumentExpressionToArgument
 
 let rec inferType (binding: Binding) : Type =
     match binding with
@@ -24,7 +24,7 @@ let rec inferType (binding: Binding) : Type =
     | IntBinding    _ -> IntType
     | IncBinding    _ -> IntType
     | StringBinding _ -> StringType
-    | VariableBinding (variableType = variableType) -> variableType
+    | VariableBinding (_, variableType) -> variableType
     | FunctionBinding (Inc _) ->
         FunctionType(Some IntType, IntType)
     | FunctionBinding ( UserFunction (Argument = argument; ResultType = resultType )) ->
@@ -72,21 +72,21 @@ let rec private toInvokedArgumentBinding (environment: Context) (expression : Ex
 
 and private toBinding (environment: Context) (expression : Expression) : Binding =
     match expression with
-    | EmptyListExpr                     -> failwith "() should never happen here"
+    | NilExpr                     -> failwith "() should never happen here"
     | IdentifierExpr name               -> 
         match environment.TryFind name with
         | Some binding -> binding
         | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name)
     | IntExpr n                         -> IntBinding n
     | StringExpr str                    -> StringBinding str
-    | DefunExpr (name = _name; argument = argument; body = body) -> 
-        let argumentBinding = argument |> toArgumentBinding
+    | DefunExpr (_name, argumentExpressionOption, body) -> 
+        let argumentOption = argumentExpressionOption |> toArgumentOption
         let bodyEnvironment =
-            match argumentBinding with
-            | Some binding -> Context.extend environment (binding.ArgumentName, binding.ArgumentType)
+            match argumentOption with
+            | Some binding -> Context.extend environment (binding.ArgumentName, VariableBinding(variableName = binding.ArgumentName, variableType = binding.ArgumentType))
             | None -> environment
         let bodyBinding = toBinding bodyEnvironment body
-        FunctionBinding (UserFunction (argumentBinding, bodyBinding, bodyBinding |> inferType))
+        FunctionBinding (UserFunction (argumentOption, bodyBinding, bodyBinding |> inferType))
     | InvokeExpr (name, argument)       -> 
         match environment.TryFind name with
         | Some (FunctionBinding func) -> 
