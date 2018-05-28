@@ -19,11 +19,14 @@ type IlGeneratorTests () =
                     VariableBinding = 
                         FunctionBinding (
                             UserFunction(
-                                Argument = None,
+                                Argument = { 
+                                    ArgumentName = "()"
+                                    ArgumentType = UnitType 
+                                },
                                 Body = 
                                     InvokeBinding { 
                                         FunctionName = "inc"
-                                        Argument = Some ( IntBinding 2 )
+                                        Argument = IntBinding 2
                                         Function =  Inc 
                                     },
                                 ResultType = IntType ) )

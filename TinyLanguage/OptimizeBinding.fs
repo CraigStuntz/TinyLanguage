@@ -9,6 +9,7 @@ let private optimizeInc (binding: Binding) : Binding =
     | IncBinding _
     | BoolBinding _ 
     | IntBinding _  
+    | NilBinding
     | StringBinding _ 
     | VariableBinding _
     | FunctionBinding _
@@ -38,12 +39,7 @@ let rec optimize (binding: Binding) : Binding =
                         -> ( UserFunction (argument, body |> optimize, resultType ) )
                     | Inc 
                         -> Inc
-                let optimizedArgument = 
-                    match argument with
-                    | None 
-                        -> argument
-                    | Some argumentBinding
-                        -> Some (argumentBinding |> optimize)
+                let optimizedArgument = argument |> optimize
                 InvokeBinding { FunctionName = name; Function = optimizedFunction; Argument = optimizedArgument }
         | _ 
             -> binding

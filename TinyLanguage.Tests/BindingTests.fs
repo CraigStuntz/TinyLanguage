@@ -12,7 +12,7 @@ type BindingTests() =
     [<Test>]
     member this.``should generate correct binding for plain expression``() = 
         let source =   "(inc 2)"
-        let expected = InvokeBinding { FunctionName = "inc"; Argument = Some (IntBinding 2); Function = Inc }
+        let expected = InvokeBinding { FunctionName = "inc"; Argument = IntBinding 2; Function = Inc }
         let actual =   bind source
 
         actual |> should equal expected

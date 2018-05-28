@@ -13,10 +13,10 @@ let private argumentExpressionToArgument (expr: ArgumentExpression) =
             | "int"    -> IntType
             | "bool"   -> BoolType
             | "string" -> StringType
+            | "unit"   -> UnitType
             | wrong    -> ErrorType (sprintf "Expected argument type; found '%s'." wrong)
     }
 
-let private toArgumentOption = Option.map argumentExpressionToArgument
 
 let rec inferType (binding: Binding) : Type =
     match binding with
@@ -24,53 +24,32 @@ let rec inferType (binding: Binding) : Type =
     | IntBinding    _ -> IntType
     | IncBinding    _ -> IntType
     | StringBinding _ -> StringType
+    | NilBinding      -> UnitType
     | VariableBinding (_, variableType) -> variableType
     | FunctionBinding (Inc _) ->
-        FunctionType(Some IntType, IntType)
+        FunctionType(IntType, IntType)
     | FunctionBinding ( UserFunction (Argument = argument; ResultType = resultType )) ->
-        match argument with
-        | Some argumentBinding -> FunctionType (Some argumentBinding.ArgumentType, resultType)
-        | None                 -> FunctionType (None, resultType)
+        FunctionType (argument.ArgumentType, resultType)
     | InvokeBinding { Argument = _; Function = Inc } ->
-        FunctionType (Some IntType, IntType)
+        FunctionType (IntType, IntType)
     | InvokeBinding { Argument = argument; Function = UserFunction (_, _, resultType) } ->
-        let argType = 
-            match argument with
-            | Some arg -> Some(arg |> inferType)
-            | None     -> None
-        FunctionType (argType, resultType)
+        FunctionType (argument |> inferType, resultType)
     | DefBinding { Body = body } -> body |> inferType
     | ErrorBinding message -> ErrorType message
 
-let private argumentTypeError (invokedBinding: Binding option) (func: Function) =
+let private argumentTypeError (invokedBinding: Binding) (func: Function) =
     let definedArgumentType = 
         match func with
-        | Inc -> Some IntType
-        | UserFunction (Some argument, _, _) -> Some argument.ArgumentType
-        | UserFunction _ -> None
-    match invokedBinding, definedArgumentType with
-    | None, None -> 
-        None
-    | Some invoked, None -> 
-        Some (sprintf "Expected no arguments, but found %s." (invoked |> prettyPrintBinding))
-    | None, Some defined -> 
-        Some (sprintf "Expected %s argument, but no arguments given." (defined |> prettyPrintType))
-    | Some invoked, Some defined ->
-        match invoked |> inferType with 
-        | bindingType                  when bindingType = defined -> None
-        | FunctionType (_, resultType) when resultType  = defined -> None
-        | _ -> 
-            Some (sprintf "Expected %s argument, but found %s." (defined |> prettyPrintType) (invoked |> prettyPrintBinding))
+        | Inc -> IntType
+        | UserFunction (argument, _, _) -> argument.ArgumentType
+    match invokedBinding |> inferType with 
+    | bindingType                  when bindingType = definedArgumentType -> None
+    | FunctionType (_, resultType) when resultType  = definedArgumentType -> None
+    | _ -> 
+        Some (sprintf "Expected %s argument, but found %s." (definedArgumentType |> prettyPrintType) (invokedBinding |> prettyPrintBinding))
 
 
-let rec private toInvokedArgumentBinding (environment: Context) (expression : Expression option) : Binding option =
-    match expression with 
-    | None -> 
-        None 
-    | Some invokedArgument -> 
-        Some(toBinding environment invokedArgument)
-
-and private toBinding (environment: Context) (expression : Expression) : Binding =
+let rec private toBinding (environment: Context) (expression : Expression) : Binding =
     match expression with
     | NilExpr                     -> failwith "() should never happen here"
     | IdentifierExpr name               -> 
@@ -79,18 +58,18 @@ and private toBinding (environment: Context) (expression : Expression) : Binding
         | _            -> ErrorBinding (sprintf "Unrecognized identifier '%s'." name)
     | IntExpr n                         -> IntBinding n
     | StringExpr str                    -> StringBinding str
-    | DefunExpr (_name, argumentExpressionOption, body) -> 
-        let argumentOption = argumentExpressionOption |> toArgumentOption
+    | DefunExpr (_name, argumentExpression, body) -> 
+        let argument = argumentExpression |> argumentExpressionToArgument
         let bodyEnvironment =
-            match argumentOption with
-            | Some binding -> Context.extend environment (binding.ArgumentName, VariableBinding(variableName = binding.ArgumentName, variableType = binding.ArgumentType))
-            | None -> environment
+            match argument.ArgumentType with
+            | UnitType -> environment
+            | _ -> Context.extend environment (argument.ArgumentName, VariableBinding(variableName = argument.ArgumentName, variableType = argument.ArgumentType))
         let bodyBinding = toBinding bodyEnvironment body
-        FunctionBinding (UserFunction (argumentOption, bodyBinding, bodyBinding |> inferType))
+        FunctionBinding (UserFunction (argument, bodyBinding, bodyBinding |> inferType))
     | InvokeExpr (name, argument)       -> 
         match environment.TryFind name with
         | Some (FunctionBinding func) -> 
-            let argumentBinding = toInvokedArgumentBinding environment argument
+            let argumentBinding = toBinding environment argument
             match argumentTypeError argumentBinding func with
             | None ->
                 InvokeBinding { 
@@ -116,7 +95,7 @@ let rec private expressionsToBinding (environment: Context) (expressions : Expre
                 let body = 
                     match name with 
                     | "main" ->
-                        InvokeBinding { FunctionName = "main"; Function = functionBinding; Argument = None }
+                        InvokeBinding { FunctionName = "main"; Function = functionBinding; Argument = NilBinding }
                     | _ -> 
                         expressionsToBinding environment' rest
                 DefBinding { 
@@ -143,7 +122,7 @@ let rec bindingExists (predicate: Binding -> bool) (binding: Binding) =
     match binding with 
         | FunctionBinding (UserFunction(_, body, _)) -> 
             bindingExists predicate body  
-        | InvokeBinding  { Argument = Some argumentBinding } ->
+        | InvokeBinding  { Argument = argumentBinding } ->
             bindingExists predicate argumentBinding
         | DefBinding { VariableBinding = variableBinding; Body = bodyBinding } ->
             bindingExists predicate variableBinding || bindingExists predicate bodyBinding
@@ -152,6 +131,7 @@ let rec bindingExists (predicate: Binding -> bool) (binding: Binding) =
         | IncBinding _
         | IntBinding  _ 
         | InvokeBinding _
+        | NilBinding
         | StringBinding _
         | VariableBinding _
         | ErrorBinding _    -> 
@@ -162,7 +142,7 @@ let rec private findErrors = function
     [ error ]
 | FunctionBinding (UserFunction(_, body, _)) -> 
     findErrors body  
-| InvokeBinding  { Argument = Some argumentBinding } ->
+| InvokeBinding  { Argument = argumentBinding } ->
     findErrors argumentBinding
 | DefBinding { VariableBinding = variableBinding; Body = bodyBinding } ->
     findErrors variableBinding @ findErrors bodyBinding
@@ -171,6 +151,7 @@ let rec private findErrors = function
 | IncBinding _
 | IntBinding  _ 
 | InvokeBinding _
+| NilBinding
 | StringBinding _
 | VariableBinding _ -> 
     []

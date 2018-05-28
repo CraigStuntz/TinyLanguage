@@ -3,6 +3,7 @@
 open Binding
 open Il
 open Railway
+open Binder
 
 type Instrinsic = 
     | IncInt
@@ -34,20 +35,20 @@ let rec private codegenBinding (binding : Binding) =
     | StringBinding s  -> [Ldstr s]
     | InvokeBinding { FunctionName = name; Argument = argument } -> 
         let invoke = (name |> nameToOper |> codegenIntrinsic)
-        match argument with 
-        | Some arg -> 
-            let arguments = arg |> codegenBinding
+        match argument |> inferType with 
+        | UnitType -> invoke
+        | _ -> 
+            let arguments = argument |> codegenBinding
             arguments @ invoke
-        | None -> invoke
     | wrong -> failwithf "Sorry, you can't pass %A here!" wrong
 
 let private codegenStatements (statement : Binding): Method list = 
     match statement with
     | DefBinding { VariableName = name; VariableBinding = FunctionBinding ( UserFunction (Argument = argument; Body = body; ResultType = resultType ) ) } ->
         let argumentType = 
-            match argument with
-            | Some arg -> Some arg.ArgumentType
-            | None -> None
+            match argument.ArgumentType with
+            | UnitType -> None
+            | _ -> Some argument.ArgumentType
         let instructions = codegenBinding body
         [{ 
             Name = name

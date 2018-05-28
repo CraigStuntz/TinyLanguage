@@ -4,7 +4,8 @@ type Type =
     | IntType
     | BoolType
     | StringType
-    | FunctionType of Type option * Type
+    | FunctionType of Type * Type
+    | UnitType
     | ErrorType of string
 
 type Argument = {
@@ -13,12 +14,12 @@ type Argument = {
 }
 
 type Function = 
-    | UserFunction of Argument: Argument option * Body: Binding * ResultType: Type
+    | UserFunction of Argument: Argument * Body: Binding * ResultType: Type
     | Inc          
 and Invocation = {
     FunctionName: string
     Function:     Function
-    Argument:     Binding option
+    Argument:     Binding
 }
 and Def = {
     VariableName:    string
@@ -34,6 +35,7 @@ and Binding =
     | FunctionBinding of Function
     | IncBinding      of Binding   // Eventually replace this with a list of builtins
     | DefBinding      of Def
+    | NilBinding
     | ErrorBinding    of string
 
 
@@ -42,11 +44,8 @@ let rec prettyPrintType = function
 | BoolType    -> "bool"
 | StringType  -> "string"
 | FunctionType (argument, resultType) -> 
-    match argument with
-    | Some argumentBindingType ->
-        sprintf "%s -> %s" (prettyPrintType argumentBindingType) (prettyPrintType resultType)
-    | None ->
-        sprintf "-> %s" (prettyPrintType resultType)
+    sprintf "%s -> %s" (prettyPrintType argument) (prettyPrintType resultType)
+| UnitType    -> "()"
 | ErrorType message -> 
     sprintf "Error (%s)" message
 
@@ -54,33 +53,31 @@ let rec prettyPrintType = function
 let rec prettyPrintBinding = function
 | BoolBinding     value  -> sprintf "%A" value
 | IntBinding      value  -> sprintf "%d" value
+| NilBinding             -> "()"
 | StringBinding   value  -> sprintf "%s" value
 | VariableBinding (variableName = name)  -> name
 | IncBinding binding     -> 
     sprintf "(inc %s)" (binding |> prettyPrintBinding)
 | InvokeBinding   value  -> 
-    match value.Argument with
-    | Some argument -> 
-        sprintf "(%s %s)" value.FunctionName (argument |> prettyPrintBinding)
-    | None -> 
-        sprintf "(%s)" value.FunctionName
+    sprintf "(%s %s)" value.FunctionName (value.Argument |> prettyPrintBinding)
 | FunctionBinding value  -> 
     match value with
-    | UserFunction (argument, body, resultType) ->
-        match argument with
-        | Some arg -> sprintf "(lambda %s %s)" arg.ArgumentName (prettyPrintBinding body)
-        | None     -> sprintf "(lambda () %s)" (prettyPrintBinding body)
+    | UserFunction (argument, body, _resultType) ->
+        match argument.ArgumentType with
+        | UnitType -> sprintf "(lambda () %s)" (prettyPrintBinding body)
+        | _        -> sprintf "(lambda %s %s)" argument.ArgumentName (prettyPrintBinding body)
     | Inc -> "inc"
 | DefBinding      value  ->
     match value.Body with
-    | FunctionBinding (UserFunction (argument, body, resultType)) -> 
-        match argument with
-        | Some arg -> 
-            sprintf "(defun %s (%s %s) %s)" 
-                value.VariableName (prettyPrintType arg.ArgumentType) arg.ArgumentName (prettyPrintBinding body)
-        | None  -> 
+    | FunctionBinding (UserFunction (argument, body, _resultType)) -> 
+        match argument.ArgumentType with
+        | UnitType -> 
             sprintf "(defun %s () %s)" 
                 value.VariableName (prettyPrintBinding body)    
+        | _ -> 
+            sprintf "(defun %s (%s %s) %s)" 
+                value.VariableName (prettyPrintType argument.ArgumentType) argument.ArgumentName (prettyPrintBinding body)
+
     | _  -> sprintf "(def %s %s)" value.VariableName (prettyPrintBinding value.Body)
 | ErrorBinding message -> sprintf "Error (%s)" message
 

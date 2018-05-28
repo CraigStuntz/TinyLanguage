@@ -23,12 +23,12 @@ type OptimizeBindingTests() =
         let binding = InvokeBinding {
             FunctionName = "foo"
             Function = stubUserFunction
-            Argument = Some (IncBinding (IntBinding -1))
+            Argument = IncBinding (IntBinding -1)
         }
         let expected = InvokeBinding {
             FunctionName = "foo"
             Function = stubUserFunction
-            Argument = Some (IntBinding 0)
+            Argument = IntBinding 0
         }
         let actual = binding |> optimize
 
