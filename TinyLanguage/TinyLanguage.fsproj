@@ -49,8 +49,8 @@
     <Compile Include="Railway.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Syntax.fs" />
-    <Compile Include="Parser.fs" />
     <Compile Include="Binding.fs" />
+    <Compile Include="Parser.fs" />
     <Compile Include="Context.fs" />
     <Compile Include="Binder.fs" />
     <Compile Include="Il.fs" />

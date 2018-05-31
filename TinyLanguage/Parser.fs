@@ -2,6 +2,7 @@
 
 open Lexer
 open Syntax
+open Binding
 
 type private ParseState = {
     Expressions: Expression list
@@ -54,7 +55,8 @@ and private parseDefun (name: string, state : ParseState) =
             parseDefunBody(name, argument, { state with Remaining = argumentExpr.Remaining } )
         | _wrong -> { state with Expressions = [ ErrorExpr "Arguments must have a type and an identifier name." ] }
     | [ NilExpr ] -> 
-        parseDefunBody(name, { TypeName = "unit"; ArgumentName = "()" }, { state with Remaining = argumentExpr.Remaining })
+        let unitTypeName = UnitType |> prettyPrintType
+        parseDefunBody(name, { TypeName = unitTypeName; ArgumentName = unitTypeName }, { state with Remaining = argumentExpr.Remaining })
     | ErrorExpr message :: _ -> error message
     | _ -> error "Exactly one argument expected."
 and private parseInvoke (identifier: string, state : ParseState) =

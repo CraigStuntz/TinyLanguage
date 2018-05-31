@@ -8,6 +8,26 @@ type Type =
     | UnitType
     | ErrorType of string
 
+let parseTypeName (name: string) = 
+    match name with
+    | "int"    -> IntType
+    | "bool"   -> BoolType
+    | "string" -> StringType
+    | "()"     -> UnitType
+    | wrong    -> ErrorType (sprintf "Expected argument type; found '%s'." wrong)
+
+
+let rec prettyPrintType = function 
+| IntType     -> "int"
+| BoolType    -> "bool"
+| StringType  -> "string"
+| FunctionType (argument, resultType) -> 
+    sprintf "%s -> %s" (prettyPrintType argument) (prettyPrintType resultType)
+| UnitType    -> "()"
+| ErrorType message -> 
+    sprintf "Error (%s)" message
+
+
 type Argument = {
     ArgumentName: string
     ArgumentType: Type
@@ -37,17 +57,6 @@ and Binding =
     | DefBinding      of Def
     | NilBinding
     | ErrorBinding    of string
-
-
-let rec prettyPrintType = function 
-| IntType     -> "int"
-| BoolType    -> "bool"
-| StringType  -> "string"
-| FunctionType (argument, resultType) -> 
-    sprintf "%s -> %s" (prettyPrintType argument) (prettyPrintType resultType)
-| UnitType    -> "()"
-| ErrorType message -> 
-    sprintf "Error (%s)" message
 
 
 let rec prettyPrintBinding = function

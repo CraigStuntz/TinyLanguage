@@ -8,13 +8,7 @@ open Syntax
 let private argumentExpressionToArgument (expr: ArgumentExpression) =
     {
         ArgumentName = expr.ArgumentName
-        ArgumentType = 
-            match expr.TypeName with
-            | "int"    -> IntType
-            | "bool"   -> BoolType
-            | "string" -> StringType
-            | "unit"   -> UnitType
-            | wrong    -> ErrorType (sprintf "Expected argument type; found '%s'." wrong)
+        ArgumentType = expr.TypeName |> parseTypeName
     }
 
 
