@@ -2,7 +2,7 @@
 
 open NUnit.Framework
 open FsUnit
-open Binding
+open Binder
 open OptimizeBinding
 
 type OptimizeBindingTests() =

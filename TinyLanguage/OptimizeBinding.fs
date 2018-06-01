@@ -1,6 +1,6 @@
 ﻿module OptimizeBinding
 
-open Binding
+open Binder
 
 let private optimizeInc (binding: Binding) : Binding =
     match binding with 

@@ -3,7 +3,7 @@
 open System
 open System.Reflection
 open System.Reflection.Emit
-open Binding
+open Types
 
 [<NoComparison>]
 type Instruction = 
@@ -94,6 +94,11 @@ let private emit (ilg : Emit.ILGenerator) inst =
     | Sub            -> ilg.Emit(OpCodes.Sub)
 
 let private compileEntryPoint (typeBuilder : TypeBuilder) (methodToCall: MethodBuilder) = 
+    // This is sort of ridiculous, so some explanation is in order
+    // My little language has only one intrinsic operation, "inc"
+    // Since we'd like to see output and there are no type conversions, this 
+    // function wraps the "main" in compiled source code with a "Main" entry
+    // point which converts the int to a string and writes to console.
     let methodBuilder = 
         let methodAttributes = MethodAttributes.Public ||| MethodAttributes.Static 
         let methodName = "Main"
@@ -104,7 +109,7 @@ let private compileEntryPoint (typeBuilder : TypeBuilder) (methodToCall: MethodB
         ilGenerator (DeclareLocal methodToCall.ReturnType)
         ilGenerator Stloc_0
         ilGenerator (Ldloc_S 0uy)
-        let writeln = typeof<System.Console>.GetMethod("WriteLine", [| typeof<System.Int32> |])
+        let writeln = typeof<System.Console>.GetMethod("WriteLine", [| methodToCall.ReturnType |])
         ilGenerator (Call writeln)
     ilGenerator Ret
     methodBuilder

@@ -1,11 +1,10 @@
-﻿module BindingTests
+﻿module BinderTests
 
 open NUnit.Framework
 open FsUnit
-open Binding
 open Binder
 
-type BindingTests() =
+type BinderTests() =
     let bind (source: string) : Binding =
         source |> Lexer.lex |> Parser.parse |> Binder.bind
 

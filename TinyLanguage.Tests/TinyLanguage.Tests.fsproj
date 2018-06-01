@@ -926,7 +926,7 @@
     <Compile Include="TestHelpers.fs" />
     <Compile Include="LexerTests.fs" />
     <Compile Include="ParserTests.fs" />
-    <Compile Include="BindingTests.fs" />
+    <Compile Include="BinderTests.fs" />
     <Compile Include="IlGeneratorTests.fs" />
     <Compile Include="OptimizeBindingTests.fs" />
     <None Include="paket.references" />

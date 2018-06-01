@@ -1,6 +1,6 @@
 ﻿module IlGenerator
 
-open Binding
+open Types
 open Il
 open Railway
 open Binder

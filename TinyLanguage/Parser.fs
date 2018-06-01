@@ -2,7 +2,7 @@
 
 open Lexer
 open Syntax
-open Binding
+open Types
 
 type private ParseState = {
     Expressions: Expression list
